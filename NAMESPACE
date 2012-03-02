@@ -1,0 +1,5 @@
+export("cdist", "FTres", "genseed", "getEquating", "getPre", "getType", "getScores", "getH", "getEq", "getSee", "getEqlin", "getSeelin", "getEqirt", "getSeeirt", "getSeed", "kefreq", "kequate", "kequateCB", "kequateEG", "kequateNEAT_CE","kequateNEAT_PSE","kequateSG", "PREp")
+exportMethods("plot","summary", "getEquating", "getPre", "getType", "getScores", "getH", "getEq", "getSee", "getEqlin", "getSeelin", "getEqirt", "getSeeirt", "getSeed")
+exportClasses("cdist","genseed","keout")
+
+import(graphics, stats)
