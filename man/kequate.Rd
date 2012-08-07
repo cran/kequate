@@ -28,9 +28,11 @@ Further arguments which partly depend on the design chosen. (See section Details
 Besides the above argument, additional arguments must be provided for the different equating designs.
 
 \subsection{EG design}{\cr
-\sQuote{x}    A vector of possible score values on the tests to be equated, ordered from the lowest to the highest score.  
+\sQuote{x}    A vector of possible score values on the test X to be equated, ordered from the lowest to the highest score. 
 
-\sQuote{r},\sQuote{s}    Numeric vectors containing the estimated score probabilities for tests X and Y respectively.  Alternatively objects of class \sQuote{glm}.  
+\sQuote{y}    A vector of possible score values on the test Y to be equated, ordered from the lowest to the highest score.  
+
+\sQuote{r},\sQuote{s}    Numeric vectors containing the estimated or observed score probabilities for tests X and Y respectively.  Alternatively objects of class \sQuote{glm}.  
 
 \sQuote{DMP}, \sQuote{DMQ}    The design matrices from the log-linear models for the estimated score probabilities for X and Y.  Not needed if arguments r and s are of class \sQuote{glm}.  
 
@@ -49,12 +51,20 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{irtx}, \sQuote{irty} Optional arguments to provide matrices of probabilities to answer correctly to the questions on the parallel tests X and Y, as estimated in an Item Response Theory (IRT) model.
 
 \sQuote{smoothed}    A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.
+
+\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic" or "uniform". Default is "gaussian".
+
+\sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
+
+\sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
 }
 
 \subsection{SG design}{\cr
-\sQuote{x}    A vector of possible score values on the tests to be equated, ordered from the lowest to the highest score.
+\sQuote{x}    A vector of possible score values on the test X to be equated, ordered from the lowest to the highest score. 
 
-\sQuote{P}    The estimated probability matrix for scores on tests X and Y, where the columns denote scores on test Y and the rows denote scores on test X. Alternatively a vector of score probabilities or an object of class \sQuote{glm}.
+\sQuote{y}    A vector of possible score values on the test Y to be equated, ordered from the lowest to the highest score.  
+
+\sQuote{P}    The estimated or observed probability matrix for scores on tests X and Y, where the columns denote scores on test Y and the rows denote scores on test X. Alternatively a vector of score probabilities or an object of class \sQuote{glm}, where the entries are ordered first by the Y-scores and then by the X-scores.
 
 \sQuote{DM}    The design matrix used in the log-linear model. Not needed if the argument P is of class \sQuote{glm}.
 
@@ -73,14 +83,20 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{irtx}, \sQuote{irty}    Optional arguments to provide matrices of probabilities to answer correctly to the questions on the parallel tests X and Y, as estimated in an Item Response Theory (IRT) model.
 
 \sQuote{smoothed}    A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.
+
+\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic" or "uniform". Default is "gaussian".
+
+\sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
+
+\sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
 }
 
 \subsection{CB design}{\cr
-\sQuote{x}    A vector of possible score values on the test X, ordered from the lowest to the highest score.
+\sQuote{x}    A vector of possible score values on the test X to be equated, ordered from the lowest to the highest score. 
 
-\sQuote{y}    A vector of possible score values on the test Y, ordered from the lowest to the highest score.
+\sQuote{y}    A vector of possible score values on the test Y to be equated, ordered from the lowest to the highest score.  
 
-\sQuote{P12}, \sQuote{P21}    The estimated probability matrices for scores on first taking test X and then taking test Y, and first taking test Y and then taking test X respectively, where the rows denote scores on tests X and the columns denote scores on test Y. Alternatively numeric vectors or objects of class \sQuote{glm}.
+\sQuote{P12}, \sQuote{P21}    The estimated or observed probability matrices for scores on first taking test X and then taking test Y, and first taking test Y and then taking test X respectively, where the rows denote scores on tests X and the columns denote scores on test Y. Alternatively numeric vectors or objects of class \sQuote{glm}, where the entries are ordered first by the Y-scores and then by the X-scores.
 
 \sQuote{DM12}, \sQuote{DM21}    The design matrices from the log-linear models for the estimated score probabilities for the two test groups. Not needed if arguments P12 and P21 are of class \sQuote{glm}.
 
@@ -101,12 +117,20 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{irtx}, \sQuote{irty} Optional arguments to provide matrices of probabilities to answer correctly to the questions on the parallel tests X and Y, as estimated in an Item Response Theory (IRT) model.
 
 \sQuote{smoothed}    A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.
+
+\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic" or "uniform". Default is "gaussian".
+
+\sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
+
+\sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
 }
 
 \subsection{NEAT PSE or NEC design}{\cr
-\sQuote{x}    A vector of possible score values on the tests to be equated, ordered from the lowest to the highest score.
+\sQuote{x}    A vector of possible score values on the test X to be equated, ordered from the lowest to the highest score. 
 
-\sQuote{P}, \sQuote{Q}    The estimated probability matrices for scores on tests X and A and tests Y and A respectively, where the rows denote scores on tests X or Y and the columns denote scores on test A. Alternatively numeric vectors or objects of class \sQuote{glm}.
+\sQuote{y}    A vector of possible score values on the test Y to be equated, ordered from the lowest to the highest score.  
+
+\sQuote{P}, \sQuote{Q}    The estimated or observed probability matrices for scores on tests X and A and tests Y and A respectively, where the rows denote scores on tests X or Y and the columns denote scores on test A. Alternatively numeric vectors or objects of class \sQuote{glm}, where the entries are ordered first by the X-scores/Y-scores and then by the A-scores.
 
 \sQuote{DMP}, \sQuote{DMQ}    The design matrices from the log-linear models for the estimated score probabilities for X and A and Y and A. Not needed if arguments P and Q are of class \sQuote{glm}.
 
@@ -127,14 +151,22 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{irtx}, \sQuote{irty} Optional arguments to provide matrices of probabilities to answer correctly to the questions on the parallel tests X and Y, as estimated in an Item Response Theory (IRT) model.
 
 \sQuote{smoothed}    A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.
+
+\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic" or "uniform". Default is "gaussian".
+
+\sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
+
+\sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
 }
 
 \subsection{NEAT CE design}{\cr
-\sQuote{x}    A vector of possible score values on the tests to be equated, ordered from the lowest to the highest score.
+\sQuote{x}    A vector of possible score values on the test X to be equated, ordered from the lowest to the highest score. 
+
+\sQuote{y}    A vector of possible score values on the test Y to be equated, ordered from the lowest to the highest score.  
 
 \sQuote{a}    A vector containing the possible score values on the anchor test, ordered from the lowest score to the highest.
 
-\sQuote{P}, \sQuote{Q}    The estimated probability matrices for scores on tests X and A and tests Y and A respectively, where the rows denote scores on test X or Y and the columns denote scores on test A. Alternatively numeric vectors or objects of class \sQuote{glm}.
+\sQuote{P}, \sQuote{Q}    The estimated or observed probability matrices for scores on tests X and A and tests Y and A respectively, where the rows denote scores on test X or Y and the columns denote scores on test A. Alternatively numeric vectors or objects of class \sQuote{glm}, where the entries are ordered first by the X-scores/Y-scores and then by the A-scores.
 
 \sQuote{DMP}, \sQuote{DMQ}    The design matrices from the log-linear models for the estimated score probabilities for X and A and Y and A, respectively. Not needed if arguments P and Q are of class \sQuote{glm}.
 
@@ -153,6 +185,12 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{irtx}, \sQuote{irty} Optional arguments to provide matrices of probabilities to answer correctly to the questions on the parallel tests X and Y, as estimated in an Item Response Theory (IRT) model.
 
 \sQuote{smoothed}    A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.
+
+\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic" or "uniform". Default is "gaussian".
+
+\sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
+
+\sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
 }
 }
 \value{
@@ -166,12 +204,13 @@ Kequate returns an S4 object of class 'keout' which includes the following slots
 \item{Pobs}{The observed probability matrix over population P.}
 \item{Qest}{The estimated probability matrix over population Q.}
 \item{Qobs}{The observed probability matrix over population Q.}
-\item{scores}{A list containing the score vector for the tests to be equated and, in a NEAT CE design, the score vector of the anchor test.}
+\item{scores}{A list containing the score vectors for the tests to be equated and, in a NEAT CE design, the score vector of the anchor test. Also included are the estimated score probabilities and the continuized cumulative distribution functions for the respective tests.}
 \item{linear}{A logical vector. TRUE if linear=TRUE was specified, otherwise FALSE.}
 \item{PRE}{A data frame containing the percent relative error in the ten first moments between the equated scores and the reference distribution. (For chain equating, the PRE is calculated for the linking from X to A and the linking from A to Y.)}
 \item{h}{A data frame containing the continuization parameters used in the equating.}
+\item{kernel}{A character vector denoting the kernel used.}
 \item{type}{A character vector describing the design used.}
-\item{equating}{A data frame containing the equated values from X to Y and the associated standard errors (for either an equipercentile or a linear equating), as well as the SEED between the equipercentile and linear equating functions and the equated values and the associated standard errors in the linear case (if an equipercentile equating is conducted). Also included are the estimated score probabilities and the continuized cumulative distribution functions for the respective tests.}
+\item{equating}{A data frame containing the equated values from X to Y and the associated standard errors (for either an equipercentile or a linear equating), as well as the SEED between the equipercentile and linear equating functions and the equated values and the associated standard errors in the linear case (if an equipercentile equating is conducted).}
 }
 \references{
 von Davier, A.A., Holland, P.W., Thayer, D.T. (2004). \emph{The Kernel Method of Test Equating.} Springer-Verlag New York.
@@ -191,6 +230,8 @@ Q<-c(10, 30, 30, 20, 10)
 x<-0:4
 glmx<-glm(P~I(x)+I(x^2), family="poisson", x=TRUE)
 glmy<-glm(Q~I(x)+I(x^2), family="poisson", x=TRUE)
-keEG<-kequate("EG", 0:4, glmx, glmy)
+keEG<-kequate("EG", 0:4, 0:4, glmx, glmy)
+keEGlog<-kequate("EG", 0:4, 0:4, glmx, glmy, kernel="logistic", slog=sqrt(3)/pi)
+keEGuni<-kequate("EG", 0:4, 0:4, glmx, glmy, kernel="uniform", bunif=sqrt(3))
 plot(keEG)
 }

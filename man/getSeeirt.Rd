@@ -40,6 +40,6 @@ irtY<-c(24, 36, 48, 12, 10)
 xirt=0:4
 glmXirt<-glm(irtX~xirt+I(xirt^2), family="poisson", x=TRUE)
 glmYirt<-glm(irtY~xirt+I(xirt^2), family="poisson", x=TRUE)
-keEGirt<-kequate("EG", xirt, glmXirt, glmYirt, irtx=irtmatX, irty=irtmatY)
+keEGirt<-kequate("EG", 0:4, 0:4, glmXirt, glmYirt, irtx=irtmatX, irty=irtmatY)
 getSeeirt(keEGirt)
 }
