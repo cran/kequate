@@ -225,6 +225,7 @@ von Davier, A.A., Holland, P.W., Thayer, D.T. (2004). \emph{The Kernel Method of
 \code{\link{glm}},\code{\link{kefreq}}
 }
 \examples{
+#EG toy example with different kernels
 P<-c(5, 20, 35, 25, 15)
 Q<-c(10, 30, 30, 20, 10)
 x<-0:4
@@ -234,4 +235,15 @@ keEG<-kequate("EG", 0:4, 0:4, glmx, glmy)
 keEGlog<-kequate("EG", 0:4, 0:4, glmx, glmy, kernel="logistic", slog=sqrt(3)/pi)
 keEGuni<-kequate("EG", 0:4, 0:4, glmx, glmy, kernel="uniform", bunif=sqrt(3))
 plot(keEG)
+
+#NEAT example using simulated data
+data(simeq)
+freq1 <- kefreq(simeq$bivar1$X, 0:20, simeq$bivar1$A, 0:10)
+freq2 <- kefreq(simeq$bivar2$Y, 0:20, simeq$bivar2$A, 0:10)
+glm1<-glm(frequency~I(X)+I(X^2)+I(X^3)+I(X^4)+I(X^5)+I(A)+I(A^2)+I(A^3)+I(A^4)+I(A):I(X)+I(A):I(X^2)+I(A^2):I(X)+I(A^2):I(X^2), family="poisson", data=freq1, x=TRUE)
+glm2<-glm(frequency~I(X)+I(X^2)+I(A)+I(A^2)+I(A^3)+I(A^4)+I(A):I(X)+I(A):I(X^2)+I(A^2):I(X)+I(A^2):I(X^2), family="poisson", data=freq2, x=TRUE)
+keNEATPSE <- kequate("NEAT_PSE", 0:20, 0:20, glm1, glm2)
+keNEATCE <- kequate("NEAT_CE", 0:20, 0:20, 0:10, glm1, glm2)
+summary(keNEATPSE)
+summary(keNEATCE)
 }

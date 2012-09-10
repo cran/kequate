@@ -2,9 +2,9 @@
 \alias{getScores}
 \alias{getScores-class}
 \alias{getScores,keout-method}
-\title{Retrieve the Score Vectors of an Equating}
+\title{Retrieve the Score Vectors and Associated Information from an Equating}
 \description{
-Function to retrieve the type of equating from an object of class keout created by kequate.
+Function to retrieve score vectors, score probabilities and continuized deistribution functions from an object of class keout created by kequate.
 }
 \usage{
 getScores(object)
@@ -15,7 +15,7 @@ An object of class keout as created by the function kequate.
 }
 }
 \value{
-A list containing the score vector(s) used in the equating.
+A list containing the data frames with the score vectors and associated information for the respective tests used in the equating.
 }
 \author{
 \email{bjorn.andersson@statistik.uu.se}\cr

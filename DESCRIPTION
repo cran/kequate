@@ -1,8 +1,8 @@
 Package: kequate
 Type: Package
 Title: The kernel method of test equating
-Version: 1.0.0
-Date: 2012-08-07
+Version: 1.1.0
+Date: 2012-09-10
 Author: Bjorn Andersson, Kenny Branberg and Marie Wiberg
 Maintainer: Bjorn Andersson <bjorn.andersson@statistik.uu.se>
 Description: Implements the kernel method of test equating using the
@@ -12,6 +12,6 @@ Description: Implements the kernel method of test equating using the
 License: GPL-3
 LazyLoad: yes
 Depends: R(>= 2.11.0), methods, stats, graphics
-Packaged: 2012-08-07 10:02:40 UTC; bjorna
+Packaged: 2012-09-10 15:07:45 UTC; bjorn
 Repository: CRAN
-Date/Publication: 2012-08-07 12:39:04
+Date/Publication: 2012-09-10 15:27:07

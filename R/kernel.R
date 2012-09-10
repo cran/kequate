@@ -30,13 +30,13 @@ setMethod("plot", signature(x="genseed"), function(x){
 
 setMethod("plot", signature(x="cdist"), function(x){
     xlab1<-"Score values test A/Y"
-    ylab1<-"Mean of A|X or Y|X"
+    ylab1<-"Mean of X|A or X|Y"
     xlab2<-"Score values test A/Y"
-    ylab2<-"Variance of A|X or Y|X"
+    ylab2<-"Variance of X|A or X|Y"
     xlab3<-"Score values test X"
-    ylab3<-"Mean of X|A or X|Y"
+    ylab3<-"Mean of A|X or Y|X"
     xlab4<-"Score values test X"
-    ylab4<-"Variance of X|A or X|Y"
+    ylab4<-"Variance of A|X or Y|X"
     par(mfrow=c(2,2))
     ylim1<-c(min(x@est1[,1], x@obs1[,1], na.rm=TRUE), max(x@est1[,1], x@obs1[,1], na.rm=TRUE))
     plot(0:(length(x@est1[,1])-1), x@est1[,1], ylim=ylim1, xlab=xlab1, ylab=ylab1, pch=16)
@@ -84,16 +84,19 @@ setGeneric("summary")
 setMethod("summary", signature(object="keout"), function(object){
   cat(" Design:", object@type, "\n\n")
   cat(" Kernel:", object@kernel, "\n\n")
-  cat(" Score range: \n")
+  cat(" Sample Sizes: \n")
+  cat("   Test X:", object@scores$N, "\n")
+  cat("   Test Y:", object@scores$M, "\n\n")
+  cat(" Score Ranges: \n")
   cat("   Test X: \n       Min =", min(object@scores$X$x), "Max =", max(object@scores$X$x))
   cat("\n   Test Y: \n       Min =", min(object@scores$Y$y), "Max =", max(object@scores$Y$y))  
-  if(length(object@scores)>2)
+  if(is(object@scores$A, "data.frame"))
     cat("\n   Test A: \n       Min =", min(object@scores$A$a), "Max =", max(object@scores$A$a))
-  cat("\n\n","Bandwidths used: \n")
+  cat("\n\n","Bandwidths Used: \n")
   print(object@h)
-  cat("\n Equating function and standard errors: \n")
+  cat("\n Equating Function and Standard Errors: \n")
   print(data.frame(Score=object@scores$X$x, eqYx=object@equating$eqYx, SEEYx=object@equating$SEEYx))
-  cat("\n Comparing the moments: \n")
+  cat("\n Comparing the Moments: \n")
   print(object@PRE)}
 )
 
@@ -508,8 +511,10 @@ kefreq<-function(in1, xscores, in2, ascores){
 #the ability estimates from the IRT model are used to create score probabilities for each score on the two tests
 #the resulting score probabilities are treated as though coming from an EG design
 keirt<-function(irtr, irts, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif){
-      if(kernel=="uniform")
+      if(kernel=="uniform"){
         ulimit<-(1/(2*bunif*(1-0.61803)))
+        KPEN<-0
+      }
       else
         ulimit<-4
       rirt<-LordW(irtr)
@@ -549,8 +554,8 @@ keirt<-function(irtr, irts, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
 	  	dGdseYEGirt<-dFdr(sirt, hyirt, varyirt, meanyirt, gprimeYirt, eqYxIRT, y, kernel, slog, bunif)						#KxK
 
   		Urirt<-1/sqrt(N)*(diag(sqrt(rirt))-rirt%*%t(sqrt(rirt)))										#Ur, Vs are C-matrices from the factorization of the covariance matrix
-	  	Vrirt<-matrix(0, ncol=length(y), nrow=length(y))								#Us- and Vr-matrices are zero matrices for EG.
-		  Usirt<-matrix(0, ncol=length(x), nrow=length(x))			
+	  	Vrirt<-matrix(0, ncol=length(x), nrow=length(y))								#Us- and Vr-matrices are zero matrices for EG.
+		  Usirt<-matrix(0, ncol=length(y), nrow=length(x))			
 	  	Vsirt<-1/sqrt(M)*(diag(sqrt(sirt))-sirt%*%t(sqrt(sirt)))
 
       SEEYxirt<-SEE_EY(gprimeYirt, dFdreYEGirt, dGdseYEGirt, Urirt, Vrirt, Usirt, Vsirt)
@@ -559,11 +564,11 @@ keirt<-function(irtr, irts, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
       if(!linear){
         SEED_EG<-SEED(fprimeYirt, gprimeYirt, dFdreYEGirt, dGdseYEGirt, Urirt, Vrirt, Usirt, Vsirt, rirt, sirt, meanxirt, varxirt, meanyirt, varyirt, x, y, hxirtlin, hyirtlin, slog, bunif)
         output<-data.frame(eqYxIRT=eqYxIRT, SEEYxIRT=SEEYxirt, eqYxIRTLIN=SEED_EG@SEED$eqYxLIN, SEEYxIRTLIN=SEED_EG@SEED$SEEYxLIN, SEEDYxIRT=SEED_EG@SEED$SEEDYx)
-        return(new("keout", Cr=Urirt, Cs=Vsirt, SEEvect=SEED_EG@SEEvect, scores=list(X=data.frame(x, rirt, cdfxirt), Y=data.frame(y, sirt, cdfyirt)), linear=linear, PRE=data.frame(PREYxIRT), h=data.frame(hyirt=hyirt, hxirt=hxirt, SEED_EG@hlin), kernel=kernel, type="IRT equipercentile", equating=output))
+        return(new("keout", Cr=Urirt, Cs=Vsirt, SEEvect=SEED_EG@SEEvect, scores=list(X=data.frame(x, rirt, cdfxirt), Y=data.frame(y, sirt, cdfyirt), M=M, N=N), linear=linear, PRE=data.frame(PREYxIRT), h=data.frame(hyirt=hyirt, hxirt=hxirt, SEED_EG@hlin), kernel=kernel, type="IRT equipercentile", equating=output))
       }
       else{
         output<-data.frame(eqYxIRT=eqYxIRT, SEEYxIRT=SEEYxirt, cdfxirt=cdfxirt, cdfyirt=cdfyirt)
-        return(new("keout", Cr=Urirt, Cs=Vsirt, scores=list(X=data.frame(x, rirt, cdfxirt), Y=data.frame(y, sirt, cdfyirt)), linear=linear, PRE=data.frame(PREYxIRT), h=data.frame(hyirt=hyirt, hxirt=hxirt), kernel=kernel, type="IRT linear", equating=output))
+        return(new("keout", Cr=Urirt, Cs=Vsirt, scores=list(X=data.frame(x, rirt, cdfxirt), Y=data.frame(y, sirt, cdfyirt), M=M, N=N), linear=linear, PRE=data.frame(PREYxIRT), h=data.frame(hyirt=hyirt, hxirt=hxirt), kernel=kernel, type="IRT linear", equating=output))
       }
 }
 
@@ -649,20 +654,20 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
       output<-data.frame(eqYx)
       if(irtx!=0 && irty!=0){
         output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
-        out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Unsmoothed CB equipercentile", equating=output)
+        out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Unsmoothed CB equipercentile", equating=output)
         return(out)
       }
-      out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=data.frame(h), kernel=kernel, type="Unsmoothed CB equipercentile", equating=output)
+      out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h), kernel=kernel, type="Unsmoothed CB equipercentile", equating=output)
       return(out)
     }
     
     output<-data.frame(eqYx)
     if(irtx!=0 && irty!=0){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
-      out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(hxlin, hylin, irtout@h), kernel=kernel, type="Unsmoothed CB linear", equating=output)
+      out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(hxlin, hylin, irtout@h), kernel=kernel, type="Unsmoothed CB linear", equating=output)
       return(out)
     }
-    out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=data.frame(hxlin, hylin), kernel=kernel, type="Unsmoothed CB linear", equating=output)
+    out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(hxlin, hylin), kernel=kernel, type="Unsmoothed CB linear", equating=output)
     return(out)
   }
   
@@ -811,16 +816,16 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
     output<-data.frame(eqYx, SEEYx, SEEDYx, eqYxLIN=CBlin@equating$eqYx, SEEYxLIN=CBlin@equating$SEEYx)
     if(irtx!=0 && irty!=0){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEEDYx, eqYxLIN=CBlin@equating$eqYx, SEEYxLIN=CBlin@equating$SEEYx)
-      out<-new("keout", Cp=Cp12, Cq=Cp21, SEEvect=SEEvectors, Pest=P12, Pobs=P12obs, Qest=P21, Qobs=P21obs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="CB equipercentile", equating=output)
+      out<-new("keout", Cp=Cp12, Cq=Cp21, SEEvect=SEEvectors, Pest=P12, Pobs=P12obs, Qest=P21, Qobs=P21obs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="CB equipercentile", equating=output)
       return(out)
     }
-    out<-new("keout", Cp=Cp12, Cq=Cp21, SEEvect=SEEvectors, Pest=P12, Pobs=P12obs, Qest=P21, Qobs=P21obs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=data.frame(h), kernel=kernel, type="CB equipercentile", equating=output)
+    out<-new("keout", Cp=Cp12, Cq=Cp21, SEEvect=SEEvectors, Pest=P12, Pobs=P12obs, Qest=P21, Qobs=P21obs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h), kernel=kernel, type="CB equipercentile", equating=output)
     return(out)
   }
   
   SEEvectors<-new("SEEvect", SEEYx=matrix(0), SEEYxLIN=SEEYxmat)
   output<-data.frame(eqYx, SEEYx)
-  out<-new("keout", Cp=Cp12, Cq=Cp21, SEEvect=SEEvectors, Pest=P12, Pobs=P12obs, Qest=P21, Qobs=P21obs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=data.frame(hxlin, hylin), kernel=kernel, type="CB linear", equating=output)
+  out<-new("keout", Cp=Cp12, Cq=Cp21, SEEvect=SEEvectors, Pest=P12, Pobs=P12obs, Qest=P21, Qobs=P21obs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(hxlin, hylin), kernel=kernel, type="CB linear", equating=output)
   return(out)
 }
 
@@ -894,10 +899,10 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
       output<-data.frame(eqYx, SEEYx, SEED_EG@SEED)
       if(irtx!=0 && irty!=0){
         output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEED_EG@SEED)
-        out<-new("keout", Cr=Ur, Cs=Vs, SEEvect=SEED_EG@SEEvect, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin, irtout@h), kernel=kernel, type="Equipercentile EG without pre-smoothing", equating=output)
+        out<-new("keout", Cr=Ur, Cs=Vs, SEEvect=SEED_EG@SEEvect, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin, irtout@h), kernel=kernel, type="Equipercentile EG without pre-smoothing", equating=output)
         return(out)
       }
-      out<-new("keout", Cr=Ur, Cs=Vs, SEEvect=SEED_EG@SEEvect, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin), kernel=kernel, type="Equipercentile EG without pre-smoothing", equating=output)
+      out<-new("keout", Cr=Ur, Cs=Vs, SEEvect=SEED_EG@SEEvect, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin), kernel=kernel, type="Equipercentile EG without pre-smoothing", equating=output)
       return(out)
     }
     SEE_EYlin<-matrix(nrow=length(x),ncol=(length(t(dFdreYEG[,1])%*%Ur)+length(t(dFdreYEG[,1])%*%Us)))
@@ -908,10 +913,10 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
     output<-data.frame(eqYx, SEEYx)
     if(irtx!=0 && irty!=0){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT)
-      out<-new("keout", Cr=Ur, Cs=Vs, SEEvect=SEEvectors, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Linear EG without pre-smoothing", equating=output)
+      out<-new("keout", Cr=Ur, Cs=Vs, SEEvect=SEEvectors, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Linear EG without pre-smoothing", equating=output)
       return(out)
     }
-    out<-new("keout", Cr=Ur, Cs=Vs, SEEvect=SEEvectors, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Linear EG without pre-smoothing", equating=output)
+    out<-new("keout", Cr=Ur, Cs=Vs, SEEvect=SEEvectors, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Linear EG without pre-smoothing", equating=output)
     return(out)
   }
   
@@ -1013,13 +1018,13 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
     output<-data.frame(eqYx, SEEYx, SEED_EG@SEED)
     if(irtx!=0 && irty!=0){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEED_EG@SEED)
-      out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEED_EG@SEEvect, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin, irtout@h), kernel=kernel, type="EG equipercentile", equating=output)
+      out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEED_EG@SEEvect, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin, irtout@h), kernel=kernel, type="EG equipercentile", equating=output)
       return(out)
     }
-    out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEED_EG@SEEvect, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin), kernel=kernel, type="EG equipercentile", equating=output)
+    out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEED_EG@SEEvect, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin), kernel=kernel, type="EG equipercentile", equating=output)
              return(out)
   }
-  SEE_EYlin<-matrix(nrow=length(x),ncol=(length(t(dFdreYEG[,1])%*%Ur)+length(t(dFdreYEG[,1])%*%Us)))
+  SEE_EYlin<-matrix(nrow=length(x),ncol=(length(dFdreYEG[1,]%*%Ur)+length(dFdreYEG[1,])%*%Us))
   for(i in 1:length(x)){
     SEE_EYlin[i,]<-(1/gprimeY[i])*c(dFdreYEG[i,]%*%Ur-dGdseYEG[i,]%*%Vr, dFdreYEG[i,]%*%Us-dGdseYEG[i,]%*%Vs)
   }
@@ -1027,10 +1032,10 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   output<-data.frame(eqYx, SEEYx)
   if(irtx!=0 && irty!=0){
     output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT)
-    out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEEvectors, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="EG linear", equating=output)
+    out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEEvectors, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="EG linear", equating=output)
     return(out)
   }
-  out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEEvectors, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(x=x), linear=linear, PRE=PRE, h=h, kernel=kernel, type="EG linear", equating=output)
+  out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEEvectors, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="EG linear", equating=output)
   return(out)
 }
 
@@ -1137,20 +1142,20 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
       output<-data.frame(eqYx=eYCEeAx)      
       if(irtx!=0 && irty!=0){
         output<-data.frame(eqYx=eYCEeAx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
-        out<-new("keout", scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Unsmoothed NEAT CE equipercentile", equating=output)
+        out<-new("keout", scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Unsmoothed NEAT CE equipercentile", equating=output)
         return(out)
       }
-      out<-new("keout", scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Unsmoothed NEAT CE equipercentile", equating=output)
+      out<-new("keout", scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Unsmoothed NEAT CE equipercentile", equating=output)
       return(out)
     }
     h<-data.frame(hxP, hyQ, haP, haQ)
     output<-data.frame(eqYx=eYCEeAx)
     if(irtx!=0 && irty!=0){
       output<-data.frame(eqYx=eYCEeAx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
-      out<-new("keout", scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Unsmoothed NEAT CE linear", equating=output)
+      out<-new("keout", scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Unsmoothed NEAT CE linear", equating=output)
       return(out)
     }
-    out<-new("keout", scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Unsmoothed NEAT CE linear", equating=output)
+    out<-new("keout", scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Unsmoothed NEAT CE linear", equating=output)
     return(out)
   }
   
@@ -1347,10 +1352,10 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
     output<-data.frame(eqYx=eYCEeAx, SEEYx=SEEYx, SEEDYx, eqYxLIN=CElin@equating$eqYx, SEEYxLIN=CElin@equating$SEEYx)      
     if(irtx!=0 && irty!=0){
       output<-data.frame(eqYx=eYCEeAx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx=SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEEDYx, eqYxLIN=CElin@equating$eqYx,  SEEYxLIN=CElin@equating$SEEYx)
-      out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="NEAT CE equipercentile", equating=output)
+      out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="NEAT CE equipercentile", equating=output)
       return(out)
     }
-    out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="NEAT CE equipercentile", equating=output)
+    out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="NEAT CE equipercentile", equating=output)
     return(out)
   }
   
@@ -1359,10 +1364,10 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
   output<-data.frame(eqYx=eYCEeAx, SEEYx=SEEYx)
   if(irtx!=0 && irty!=0){
     output<-data.frame(eqYx=eYCEeAx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx=SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT)
-    out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectlin, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="NEAT CE linear", equating=output)
+    out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectlin, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="NEAT CE linear", equating=output)
     return(out)      
   }
-  out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectlin, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="NEAT CE linear", equating=output)
+  out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectlin, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="NEAT CE linear", equating=output)
   return(out)
 }
 
@@ -1437,19 +1442,19 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
       output<-data.frame(eqYx)
       if(irtx!=0 && irty!=0){
         output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
-        out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Equipercentile NEAT PSE without pre-smoothing", equating=output)
+        out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Equipercentile NEAT PSE without pre-smoothing", equating=output)
         return(out)
       }
-      out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Equipercentile NEAT PSE without pre-smoothing", equating=output)
+      out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Equipercentile NEAT PSE without pre-smoothing", equating=output)
       return(out)
     }
     output<-data.frame(eqYx)
     if(irtx!=0 && irty!=0){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
-      out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Linear NEAT PSE without pre-smoothing", equating=output)
+      out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Linear NEAT PSE without pre-smoothing", equating=output)
       return(out)
     }
-    out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Linear NEAT PSE without pre-smoothing", equating=output)
+    out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Linear NEAT PSE without pre-smoothing", equating=output)
     return(out)
   }
   
@@ -1637,10 +1642,10 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
     output<-data.frame(eqYx, SEEYx, SEED_NEAT@SEED)
     if(irtx!=0 && irty!=0){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEED_NEAT@SEED)
-      out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEED_NEAT@SEEvect, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, SEED_NEAT@hlin, irtout@h), kernel=kernel, type="NEAT/NEC PSE equipercentile", equating=output)
+      out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEED_NEAT@SEEvect, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_NEAT@hlin, irtout@h), kernel=kernel, type="NEAT/NEC PSE equipercentile", equating=output)
       return(out)
     }
-    out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEED_NEAT@SEEvect,Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=data.frame(h, SEED_NEAT@hlin), kernel=kernel, type="NEAT/NEC PSE equipercentile", equating=output)
+    out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEED_NEAT@SEEvect,Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_NEAT@hlin), kernel=kernel, type="NEAT/NEC PSE equipercentile", equating=output)
     return(out)
   }
   SEE_EYlin<-matrix(nrow=length(x),ncol=(length(dFdreYEG[1,]%*%Ur)+length(dFdreYEG[1,]%*%Us)))
@@ -1651,10 +1656,10 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
   output<-data.frame(eqYx, SEEYx)
   if(irtx!=0 && irty!=0){
     output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT)
-    out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="NEAT/NEC PSE linear", equating=output)
+    out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="NEAT/NEC PSE linear", equating=output)
     return(out)
   }
-  out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="NEAT/NEC PSE linear", equating=output)
+  out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="NEAT/NEC PSE linear", equating=output)
   return(out)
 }
 
@@ -1667,11 +1672,16 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
     }
     else
       ulimit<-4
-
+    if(!is.matrix(P)){
+      P<-matrix(P, nrow=length(x))
+    }
+    r<-rowSums(P)
+    s<-colSums(P)
+    M<-N
     meanx<-x%*%r
     varx<-(N/(N-1))*(x^2%*%r-meanx^2)
     meany<-y%*%s
-    vary<-(M/(M-1))*(y^2%*%s-meany^2)
+    vary<-(N/(N-1))*(y^2%*%s-meany^2)
     if(linear){
       if(hxlin==0){
         hx<-as.numeric(1000*sqrt(varx))
@@ -1702,8 +1712,7 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
         hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
-    r<-rowSums(P)
-    s<-colSums(P)
+
     cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)
     cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
     
@@ -1716,22 +1725,22 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
       irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
     
     if(!linear){
-      output<-data.frame(eqYx, cdfx, cdfy, r, s)
+      output<-data.frame(eqYx)
       if(irtx!=0 && irty!=0){
         output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
-        out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Equipercentile SG without pre-smoothing", equating=output)
+        out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Equipercentile SG without pre-smoothing", equating=output)
         return(out)
       }
-      out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Equipercentile SG without pre-smoothing", equating=output)
+      out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Equipercentile SG without pre-smoothing", equating=output)
       return(out)
     }
     output<-data.frame(eqYx)
     if(irtx!=0 && irty!=0){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
-      out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Linear SG without pre-smoothing", equating=output)
+      out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Linear SG without pre-smoothing", equating=output)
       return(out)
     }
-    out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Linear SG without pre-smoothing", equating=output)
+    out<-new("keout", scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="Linear SG without pre-smoothing", equating=output)
     return(out)
   }
   
@@ -1839,10 +1848,10 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
     output<-data.frame(eqYx, SEEYx, SEED_SG@SEED)
     if(irtx!=0 && irty!=0){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEED_SG@SEED)
-      out<-new("keout", Cp=Cp, SEEvect=SEED_SG@SEEvect, Pest=P, Pobs=Pobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(h, SEED_SG@hlin, irtout@h), kernel=kernel, type="SG equipercentile", equating=output)
+      out<-new("keout", Cp=Cp, SEEvect=SEED_SG@SEEvect, Pest=P, Pobs=Pobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_SG@hlin, irtout@h), kernel=kernel, type="SG equipercentile", equating=output)
       return(out)
     }
-    out<-new("keout", Cp=Cp, SEEvect=SEED_SG@SEEvect, Pest=P, Pobs=Pobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=data.frame(h, SEED_SG@hlin), kernel=kernel, type="SG equipercentile", equating=output)
+    out<-new("keout", Cp=Cp, SEEvect=SEED_SG@SEEvect, Pest=P, Pobs=Pobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_SG@hlin), kernel=kernel, type="SG equipercentile", equating=output)
     return(out)
   }
    SEE_EYlin<-matrix(nrow=length(x),ncol=(length(dFdreYSG[1,]%*%Ur)+length(dFdreYSG[1,]%*%Us)))
@@ -1853,10 +1862,10 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
   output<-data.frame(eqYx, SEEYx)
   if(irtx!=0 && irty!=0){
     output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT)
-    out<-new("keout", Cp=Cp, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt)), linear=linear, PRE=PRE, h=data.frame(hx, hy, irtout@h), kernel=kernel, type="SG linear", equating=output)
+    out<-new("keout", Cp=Cp, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(hx, hy, irtout@h), kernel=kernel, type="SG linear", equating=output)
     return(out)
   }
-  out<-new("keout", Cp=Cp, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy)), linear=linear, PRE=PRE, h=data.frame(hx, hy), kernel=kernel, type="SG linear", equating=output)
+  out<-new("keout", Cp=Cp, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(hx, hy), kernel=kernel, type="SG linear", equating=output)
   return(out)
 }
 
