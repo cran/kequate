@@ -190,6 +190,20 @@ setMethod("getSeeirt","keout",
 }
 )
 
+altoptdensity <- function(r, h, var, mean, eqx, x){
+  res<-numeric(length(eqx))
+  a<-sqrt(var/(var+h^2))
+  for(i in 1:length(eqx)){
+    ff<-0
+    for(j in 1:length(r)){
+        Rx<-(eqx[i]-a*x[j]-(1-a)*mean)/(a*h)
+        ff<-ff+x[j]*r[j]*dnorm(Rx)/(a*h)
+    }
+    res[i]<-ff
+  }
+  return(res)
+}
+
 #continuization function
 cdf<-function(r, h, mean, var, kernel, slog, bunif){    #r=estimated score probabilities, h=optimal h, mean of test, var of test
   a<-sqrt(var/(var+h^2))
@@ -203,6 +217,10 @@ cdf<-function(r, h, mean, var, kernel, slog, bunif){    #r=estimated score proba
       Rx<-(x[i]-a*x[j]-(1-a)*mean)/(a*h)
       if(kernel=="gaussian"){
         Rx<-(x[i]-a*x[j]-(1-a)*mean)/(a*h)
+        cdftemp<-cdftemp+r[j]*pnorm(Rx)
+      }
+      if(kernel=="stdgaussian"){
+        Rx<-(x[i]-x[j])/(h)
         cdftemp<-cdftemp+r[j]*pnorm(Rx)
       }
       if(kernel=="logistic"){
@@ -230,6 +248,10 @@ cdfce<-function(r, ha, mean, var, eqa, a, kernel, slog, bunif){    #r=estimated 
     for(j in 1:length(a)){
       if(kernel=="gaussian"){
         Rx<-(eqa[i]-aa*a[j]-(1-aa)*mean)/(aa*ha)
+        cdftemp<-cdftemp+r[j]*pnorm(Rx)
+      }
+      if(kernel=="stdgaussian"){
+        Rx<-(eqa[i]-a[j])/(ha)
         cdftemp<-cdftemp+r[j]*pnorm(Rx)
       }
       if(kernel=="logistic"){
@@ -306,27 +328,21 @@ densityeq<-function(r, h, var, mean, eqx, x, kernel, slog, bunif){
   au<-sqrt(var/(var+((bunif^2)/3)*h^2))
   for(i in 1:length(eqx)){
     ff<-0
-    for(j in 1:length(r)){
-      if(kernel=="gaussian"){
-        Rx<-(eqx[i]-a*x[j]-(1-a)*mean)/(a*h)
-        ff<-ff+r[j]*dnorm(Rx)/(a*h)
-      }
-      if(kernel=="logistic"){
-        Rx<-(eqx[i]-al*x[j]-(1-al)*mean)/(al*h)
-        ff<-ff+r[j]*(exp(-(Rx)/slog) / (slog*(1+exp(-(Rx)/slog))^2) /(al*h) )
-      }
-      if(kernel=="uniform"){
-        Rx<-(eqx[i]-au*x[j]-(1-au)*mean)/(au*h)
-        ff<-ff+r[j]*dunif(Rx, min=-bunif, max=bunif)/(au*h)
-      }
-    }
+    if(kernel=="gaussian")
+      ff <- sum(r*dnorm((eqx[i]-a*x-(1-a)*mean)/(a*h))/(a*h) )
+    if(kernel=="stdgaussian")
+      ff <- sum(r*dnorm((eqx[i]-x)/(h))/(h) )
+    if(kernel=="logistic")
+      ff <- sum(r*(exp(-((eqx[i]-al*x-(1-al)*mean)/(al*h))/slog) / (slog*(1+exp(-((eqx[i]-al*x-(1-al)*mean)/(al*h))/slog))^2) /(al*h)))
+    if(kernel=="uniform")
+      ff<-sum(r*dunif((eqx[i]-au*x-(1-au)*mean)/(au*h), min=-bunif, max=bunif)/(au*h))
     res[i]<-ff
   }
   return(res)
 }
 
 #calculates the derivatives of F w/ respect to r for the score values in eqx
-dFdr<-function(r, h, var, mean, fprim, eqx, x, kernel, slog, bunif){    			
+dFdr<-function(r, h, var, mean, fprim, eqx, x, kernel, slog, bunif, altopt=FALSE, altfprim=0){        	
   a<-sqrt(var/(var+h^2))
   al<-sqrt(var/(var+((pi^2*slog^2)/3)*h^2))
   au<-sqrt(var/(var+((bunif^2)/3)*h^2))
@@ -334,26 +350,41 @@ dFdr<-function(r, h, var, mean, fprim, eqx, x, kernel, slog, bunif){
   #	if(kernel=="uniform")
   #		
   for(i in 1:length(eqx)){
-    cdftemp<-0
-    for(j in 1:length(x)){
-      if(kernel=="gaussian"){
-        Rx<-(eqx[i]-a*x[j]-(1-a)*mean)/(a*h)
-        Mx<-(1/2)*(eqx[i]-mean)*(1-a^2)*(((x[j]-mean)/sqrt(var))^2)+(1-a)*x[j]
-        dFdrest[i, j]<-pnorm(Rx)-Mx*fprim[i]
+    if(kernel=="gaussian"){
+      if(altopt){
+        Rx <- (eqx[i] - a * x - (1 - a) * mean) / (a * h)
+        Mx <- -(1 /2) * eqx[i] * ((x - mean) / sqrt(var))^2 + (1 - a) * ((1/2) * mean * ((x - mean) / sqrt(var))^2 - x)
+        dFdrest[i, ] <- pnorm(Rx) + Mx * fprim[i] + (1/2) * ((x - mean) / sqrt(var))^2 * altfprim[i]
       }
-      if(kernel=="logistic"){
-        Rx<-(eqx[i]-al*x[j]-(1-al)*mean)/(al*h)
-        Mx<-(1/2)*(eqx[i]-mean)*(1-al^2)*(((x[j]-mean)/sqrt(var))^2)+(1-al)*x[j]
-        dFdrest[i, j]<-(1/(1+exp(-(Rx)/slog)))-Mx*fprim[i]
-      }
-      if(kernel=="uniform"){
-        Rx<-(eqx[i]-au*x[j]-(1-au)*mean)/(au*h)
-        Mx<-(1/2)*(eqx[i]-mean)*(1-au^2)*(((x[j]-mean)/sqrt(var))^2)+(1-au)*x[j]
-        dFdrest[i,j]<-punif(Rx, min=-bunif, max=bunif)-Mx*fprim[i]
+      else{
+        Rx <- (eqx[i] - a * x - (1 - a) * mean) / (a * h)
+        Mx <- (1 / 2) * (eqx[i] - mean) * (1 - a^2) * (((x - mean) / sqrt(var))^2) + (1 - a) * x
+        dFdrest[i, ] <- pnorm(Rx) - Mx * fprim[i]
       }
     }
+    if(kernel=="stdgaussian"){
+      if(altopt){
+        Rx <- (eqx[i] -  x) / (h)
+        Mx <- - Rx * (1 /2) * (sqrt(var))*((x - mean) / sqrt(var))^2
+        dFdrest[i, ] <- pnorm(Rx) + Mx * fprim[i]
+      }
+      else{
+        Rx <- (eqx[i] -  x) / (h)
+        dFdrest[i, ] <- pnorm(Rx)
+      }
+    }
+    if(kernel=="logistic"){
+      Rx<-(eqx[i]-al*x-(1-al)*mean)/(al*h)
+      Mx<-(1/2)*(eqx[i]-mean)*(1-al^2)*(((x-mean)/sqrt(var))^2)+(1-al)*x
+      dFdrest[i, ]<-(1/(1+exp(-(Rx)/slog)))-Mx*fprim[i]
+    }
+    if(kernel=="uniform"){
+      Rx<-(eqx[i]-au*x-(1-au)*mean)/(au*h)
+      Mx<-(1/2)*(eqx[i]-mean)*(1-au^2)*(((x-mean)/sqrt(var))^2)+(1-au)*x
+      dFdrest[i,]<-punif(Rx, min=-bunif, max=bunif)-Mx*fprim[i]
+    }
   }
-  return(dFdrest)									#We obtain a J x J matrix of derivatives evaluated at each value of eqx.
+return(dFdrest)									#We obtain a J x J matrix of derivatives evaluated at each value of eqx.
 }
 
 #Let's say we want to equate X to Y. cdf=estimated
@@ -378,6 +409,10 @@ eqinv<-function(cdf, r, var, mean, h, kernel, slog, bunif, smoothed=TRUE, IRT=FA
 			    Rx<-(x1-aa*x[j]-(1-aa)*mean)/(aa*h)
 			    cdftemp<-cdftemp+r[j]*pnorm(Rx)
 			  }
+			  if(kernel=="stdgaussian"){
+			    Rx<-(x1-x[j])/(h)
+			    cdftemp<-cdftemp+r[j]*pnorm(Rx)
+			  }
 			  if(kernel=="logistic"){
 			    Rx<-(x1-al*x[j]-(1-al)*mean)/(al*h)
 			    cdftemp<-cdftemp+r[j]*( 1 / (1+exp(-(Rx)/slog)) )
@@ -390,11 +425,11 @@ eqinv<-function(cdf, r, var, mean, h, kernel, slog, bunif, smoothed=TRUE, IRT=FA
 			cdftemp-u
 		}
     if(smoothed==FALSE || IRT==TRUE){
-      checkeq<-tryCatch(uniroot(ggg, c(-10, 100), tol=0.000001, r, mean, var, h, u, kernel, slog, bunif), error=function(err) stop("Could not calculate equating function, likely due to sparse data. Try values of hx and hy that are equal, or try imputing the data or use pre-smoothing."))
+      checkeq<-tryCatch(uniroot(ggg, c(-50, 200), tol=0.000001, r, mean, var, h, u, kernel, slog, bunif), error=function(err) stop("Could not calculate equating function, likely due to sparse data. Try values of hx and hy that are equal, or try imputing the data or use pre-smoothing."))
       eqf[i]<-checkeq$root
     }
     else
-		  eqf[i]<-uniroot(ggg, c(-10, 100), tol=0.000001, r, mean, var, h, u, kernel, slog, bunif)$root
+		  eqf[i]<-uniroot(ggg, c(-50, 200), tol=0.000001, r, mean, var, h, u, kernel, slog, bunif)$root
 	}
 	eqf
 }
@@ -422,6 +457,10 @@ eqinvCE<-function(cdf, t, a, var, mean, h, kernel, slog, bunif, smoothed=TRUE, I
           Rx<-(a1-aa*a[j]-(1-aa)*mean)/(aa*h)
           cdftemp<-cdftemp+t[j]*pnorm(Rx)
         }
+        if(kernel=="stdgaussian"){
+          Rx<-(a1-a[j])/(h)
+          cdftemp<-cdftemp+t[j]*pnorm(Rx)
+        }
         if(kernel=="logistic"){
           Rx<-(a1-al*a[j]-(1-al)*mean)/(al*h)
           cdftemp<-cdftemp+t[j]*( 1 / (1+exp(-(Rx)/slog)) )
@@ -434,11 +473,11 @@ eqinvCE<-function(cdf, t, a, var, mean, h, kernel, slog, bunif, smoothed=TRUE, I
       cdftemp-u
     }
     if(smoothed==FALSE || IRT==TRUE){
-      checkeq<-tryCatch(uniroot(ggg, c(-10, 100), tol=0.000001, t, mean, var, h, u, a, kernel, slog, bunif), error=function(err) stop("Could not calculate equating function, likely due to sparse data. Try values of hx and hy that are equal, or try imputing the data or use pre-smoothing."))
+      checkeq<-tryCatch(uniroot(ggg, c(-50, 200), tol=0.000001, t, mean, var, h, u, a, kernel, slog, bunif), error=function(err) stop("Could not calculate equating function, likely due to sparse data. Try values of hx and hy that are equal, or try imputing the data or use pre-smoothing."))
       eqf[i]<-checkeq$root
     }
     else
-      eqf[i]<-uniroot(ggg, c(-10, 100), tol=0.000001, t, mean, var, h, u, a, kernel, slog, bunif)$root
+      eqf[i]<-uniroot(ggg, c(-50, 200), tol=0.000001, t, mean, var, h, u, a, kernel, slog, bunif)$root
   }
   return(eqf)
 }
@@ -589,7 +628,7 @@ kequate<-function(design, ...){
     return(kequateNEAT_CE(...))
 }
 
-kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin=0, wcb=1/2, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5){
+kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin=0, wcb=1/2, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE){
   stopifnot(is(smoothed, "logical"))
   if(smoothed==FALSE){
     if(kernel=="uniform")
@@ -622,22 +661,28 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
     }
     else{
       if(hx==0)
+        if(altopt)
+          hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+      else{
         if(KPEN==0)
           hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
       }
       if(hy==0)
+        if(altopt)
+          hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+      else{
         if(KPEN==0)
           hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
       }
-      hxlin<-as.numeric(1000*sqrt(varx))
-      hylin<-as.numeric(1000*sqrt(vary))
-    }
+    } 
     
     cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)
     cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
@@ -730,18 +775,26 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
   }
   else{
     if(hx==0)
+      if(altopt)
+        hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+    else{
       if(KPEN==0)
         hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      else{
+        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      }
     }
     if(hy==0)
+      if(altopt)
+        hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+    else{
       if(KPEN==0)
         hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      else{
+        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      }
     }
     hxlin<-as.numeric(1000*sqrt(varx))
     hylin<-as.numeric(1000*sqrt(vary))
@@ -829,7 +882,7 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
   return(out)
 }
 
-kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5){
+kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE){
   stopifnot(is(smoothed, "logical"))
   if(smoothed==FALSE){
     if(kernel=="uniform"){
@@ -854,18 +907,26 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
     }
     else{
       if(hx==0)
+        if(altopt)
+          hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+      else{
         if(KPEN==0)
           hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
       }
       if(hy==0)
+        if(altopt)
+          hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+      else{
         if(KPEN==0)
           hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
       }
     }
     
@@ -877,8 +938,18 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
     gprimeY<-densityeq(s, hy, vary, meany, eqYx, y, kernel, slog, bunif)  						#G' for eY
     fprimeY<-densityeq(r, hx, varx, meanx, x, x, kernel, slog, bunif)							#F' for eY
     
-    dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif)						#Matrices of derivatives. JxJ.
-    dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif)						#KxK
+    if(altopt){
+      altfprim <- altoptdensity(r, hx, varx, meanx, x, x)
+      altgprim <- altoptdensity(s, hy, vary, meanx, eqYx, y)
+    }
+    if(altopt){
+      dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif, altopt=altopt, altfprim=altfprim)						#Matrices of derivatives. JxJ.
+      dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif, altopt=altopt, altfprim=altgprim)	
+    }
+    else{
+      dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif)						#Matrices of derivatives. JxJ.
+      dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif)						#KxK
+    }
     
     Ur<-1/sqrt(N)*(diag(sqrt(r))-r%*%t(sqrt(r)))										#Ur, Vs are C-matrices from pre-smooting model for EG.
     Vr<-matrix(0, ncol=length(x), nrow=length(y))								#Us- and Vr-matrices are zero matrices for EG.
@@ -951,7 +1022,7 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   }
   else
     ulimit<-4
-
+  
   meanx<-x%*%r
   varx<-(N/(N-1))*(x^2%*%r-meanx^2)
   meany<-y%*%s
@@ -969,20 +1040,29 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   }
   else{
     if(hx==0)
+      if(altopt)
+        hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+    else{
       if(KPEN==0)
         hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      else{
+        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      }
     }
     if(hy==0)
+      if(altopt)
+        hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+    else{
       if(KPEN==0)
         hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      else{
+        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      }
     }
   }
+  
   cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif) 									#Continuize the estimated cdf:s for X and Y.
   cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
   Cr<-cmatrixSG(r, DMP, N)										#Calculare c-matrices
@@ -1003,8 +1083,18 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   #gprimeX<-densityeq(s, hy, vary, meany, y, y)
   #fprimeX<-densityeq(r, hx, varx, meanx, eqXy, x)
   
-  dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif)						#Matrices of derivatives. JxJ.
-  dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif)						#KxK
+  if(altopt){
+    altfprim <- altoptdensity(r, hx, varx, meanx, x, x)
+    altgprim <- altoptdensity(s, hy, vary, meanx, eqYx, y)
+  }
+  if(altopt){
+    dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif, altopt=altopt, altfprim=altfprim)						#Matrices of derivatives. JxJ.
+    dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif, altopt=altopt, altfprim=altgprim)	
+  }
+  else{
+    dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif)						#Matrices of derivatives. JxJ.
+    dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif)						#KxK
+  }
   
   Ur<-Cr													#Ur, Vs are C-matrices from pre-smooting model for EG.
   Vr<-matrix(0, ncol=dim(DMP)[2], nrow=length(y))								#Us- and Vr-matrices are zero matrices for EG.
@@ -1022,7 +1112,7 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
       return(out)
     }
     out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEED_EG@SEEvect, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx), Y=data.frame(y, s, cdfy), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin), kernel=kernel, type="EG equipercentile", equating=output)
-             return(out)
+    return(out)
   }
   SEE_EYlin<-matrix(nrow=length(x),ncol=(length(dFdreYEG[1,]%*%Ur)+length(dFdreYEG[1,])%*%Us))
   for(i in 1:length(x)){
@@ -1039,7 +1129,7 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   return(out)
 }
 
-kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ=0, hxPlin=0, hyQlin=0, haPlin=0, haQlin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5){
+kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ=0, hxPlin=0, hyQlin=0, haPlin=0, haQlin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE){
   stopifnot(is(smoothed, "logical"))
   if(smoothed==FALSE){
     if(kernel=="uniform"){
@@ -1088,33 +1178,49 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
     }
     else{
       if(hxP==0)
-        if(KPEN==0)
-          hxP<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      }
+        if(altopt)
+          hxP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+        else{
+          if(KPEN==0)
+            hxP<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          else{
+            hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          }
+        }
       if(hyQ==0)
-        if(KPEN==0)
-          hyQ<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      }
+        if(altopt)
+          hyQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+        else{
+          if(KPEN==0)
+            hyQ<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          else{
+            hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          }
+        }
       if(haP==0)
-        if(KPEN==0)
-          haP<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        haPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      }
+        if(altopt)
+          haP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varaP)
+        else{
+          if(KPEN==0)
+            haP<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          else{
+            haPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          }
+        }
       if(haQ==0)
-        if(KPEN==0)
-          haQ<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        haQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      }
+        if(altopt)
+          haQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(varaQ)
+        else{
+          if(KPEN==0)
+            haQ<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          else{
+            haQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          }
+        }
       hxPlin<-as.numeric(1000*sqrt(varx))
       hyQlin<-as.numeric(1000*sqrt(vary))
       haPlin<-as.numeric(1000*sqrt(varaP))
@@ -1229,33 +1335,49 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
   }
   else{
     if(hxP==0)
-      if(KPEN==0)
-        hxP<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    }
+      if(altopt)
+        hxP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+      else{
+        if(KPEN==0)
+          hxP<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
+      }
     if(hyQ==0)
-      if(KPEN==0)
-        hyQ<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    }
+      if(altopt)
+        hyQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+      else{
+        if(KPEN==0)
+          hyQ<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
+      }
     if(haP==0)
-      if(KPEN==0)
-        haP<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      haPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    }
+      if(altopt)
+        haP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varaP)
+      else{
+        if(KPEN==0)
+          haP<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          haPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
+      }
     if(haQ==0)
-      if(KPEN==0)
-        haQ<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      haQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    }
+      if(altopt)
+        haQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(varaQ)
+      else{
+        if(KPEN==0)
+          haQ<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          haQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
+      }
     hxPlin<-as.numeric(1000*sqrt(varx))
     hyQlin<-as.numeric(1000*sqrt(vary))
     haPlin<-as.numeric(1000*sqrt(varaP))
@@ -1281,21 +1403,34 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
   eXCEeAy<-eqinvCE(cdfeAyP, rP, x, varx, meanx, hxP, kernel, slog, bunif)	#from eAy on P to X
   
   FprimeA<-densityeq(rP, hxP, varx, meanx, x, x, kernel, slog, bunif)
-  HpprimeA<-densityeq(tP, haP, varaP, meanaP, eAx, a, kernel, slog, bunif)		 
-  
-  dFdrPeA<-dFdr(rP, hxP, varx, meanx, FprimeA, x, x, kernel, slog, bunif)
-  dHpdtPeA<-dFdr(tP, haP, varaP, meanaP, HpprimeA, eAx, a, kernel, slog, bunif)
+  HpprimeA<-densityeq(tP, haP, varaP, meanaP, eAx, a, kernel, slog, bunif)
   HqprimeY<-densityeq(tQ, haQ, varaQ, meanaQ, eAx, a, kernel, slog, bunif)
   GprimeY<-densityeq(sQ, hyQ, vary, meany, eYCEeAx, y, kernel, slog, bunif)
-  
-  dHqdteY<-dFdr(tQ, haQ, varaQ, meanaQ, HqprimeY, eAx, a, kernel, slog, bunif) #check
-  dGdseY<-dFdr(sQ, hyQ, vary, meany, GprimeY, eYCEeAx, y, kernel, slog, bunif)
-  
   GprimeA<-densityeq(sQ, hyQ, vary, meany, y, y, kernel, slog, bunif)
   HqprimeA<-densityeq(tQ, haQ, varaQ, meanaQ, eAy, a, kernel, slog, bunif)
   
-  dGdsQeA<-dFdr(sQ, hyQ, vary, meany, GprimeA, y, y, kernel, slog, bunif)
-  dHqdtPeA<-dFdr(tQ, haQ, varaQ, meanaQ, HqprimeA, eAy, a, kernel, slog, bunif)
+  if(altopt){
+    altFprimeA <- altoptdensity(rP, hxP, varx, meanx, x, x)
+    altHpprimeA <- altoptdensity(tP, haP, varaP, meanaP, eAx, a)
+    altHqprimeY <- altoptdensity(tQ, haQ, varaQ, meanaQ, eAx, a)
+    altGprimeY <- altoptdensity(sQ, hyQ, vary, meany, eYCEeAx, y)
+    altGprimeA <- altoptdensity(sQ, hyQ, vary, meany, y, y)
+    altHqprimeA <- altoptdensity(tQ, haQ, varaQ, meanaQ, eAy, a)
+    dFdrPeA <- dFdr(rP, hxP, varx, meanx, FprimeA, x, x, kernel, slog, bunif, altopt=altopt, altfprim=altFprimeA)
+    dHpdtPeA <- dFdr(tP, haP, varaP, meanaP, HpprimeA, eAx, a, kernel, slog, bunif, altopt=altopt, altfprim=altHpprimeA)
+    dHqdteY <- dFdr(tQ, haQ, varaQ, meanaQ, HqprimeY, eAx, a, kernel, slog, bunif, altopt=altopt, altfprim=altHqprimeY)
+    dGdseY <- dFdr(sQ, hyQ, vary, meany, GprimeY, eYCEeAx, y, kernel, slog, bunif, altopt=altopt, altfprim=altGprimeY)
+    dGdsQeA <- dFdr(sQ, hyQ, vary, meany, GprimeA, y, y, kernel, slog, bunif, altopt=altopt, altfprim=altGprimeA)
+    dHqdtPeA <- dFdr(tQ, haQ, varaQ, meanaQ, HqprimeA, eAy, a, kernel, slog, bunif, altopt=altopt, altfprim=altHqprimeA)    
+  }
+  else{
+    dFdrPeA<-dFdr(rP, hxP, varx, meanx, FprimeA, x, x, kernel, slog, bunif)
+    dHpdtPeA<-dFdr(tP, haP, varaP, meanaP, HpprimeA, eAx, a, kernel, slog, bunif)
+    dHqdteY<-dFdr(tQ, haQ, varaQ, meanaQ, HqprimeY, eAx, a, kernel, slog, bunif) #check
+    dGdseY<-dFdr(sQ, hyQ, vary, meany, GprimeY, eYCEeAx, y, kernel, slog, bunif)
+    dGdsQeA<-dFdr(sQ, hyQ, vary, meany, GprimeA, y, y, kernel, slog, bunif)
+    dHqdtPeA<-dFdr(tQ, haQ, varaQ, meanaQ, HqprimeA, eAy, a, kernel, slog, bunif)
+  }
   
   eYa<-eqinvCE(cdfaQ, sQ, y, vary, meany, hyQ, kernel, slog, bunif)
   PREAx<-PREp(eAx, a, rP, tP)
@@ -1371,7 +1506,7 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
   return(out)
 }
 
-kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5){
+kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE){
   #    stopifnot((is(smoothed, "logical"))
   if(smoothed==FALSE){
     
@@ -1413,18 +1548,26 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
     }
     else{
       if(hx==0)
+        if(altopt)
+          hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+      else{
         if(KPEN==0)
           hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
       }
       if(hy==0)
+        if(altopt)
+          hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+      else{
         if(KPEN==0)
           hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
       }
     }
     cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)
@@ -1529,20 +1672,28 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
   }
   else{
     if(hx==0)
+      if(altopt)
+        hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+    else{
       if(KPEN==0)
         hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      else{
+        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      }
     }
     if(hy==0)
+      if(altopt)
+        hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+    else{
       if(KPEN==0)
         hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      else{
+        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      }
     }
-  }
+  }  
   cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)
   cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
   
@@ -1555,9 +1706,18 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
   gprimeY<-densityeq(s, hy, vary, meany, eqYx, y, kernel, slog, bunif)							#G' for eY
   fprimeY<-densityeq(r, hx, varx, meanx, x, x, kernel, slog, bunif)							#F' for eY
   
-  dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif)						#Matrices of derivatives. JxJ.
-  dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif)						#KxK
-  
+  if(altopt){
+    altfprim <- altoptdensity(r, hx, varx, meanx, x, x)
+    altgprim <- altoptdensity(s, hy, vary, meanx, eqYx, y)
+  }
+  if(altopt){
+    dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif, altopt=altopt, altfprim=altfprim)  					#Matrices of derivatives. JxJ.
+    dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif, altopt=altopt, altfprim=altgprim)	
+  }
+  else{
+    dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif)						#Matrices of derivatives. JxJ.
+    dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif)						#KxK
+  }
   Up<-matrix(0, length(x), ncol=dim(Cp)[2])
   Ups<-matrix(0, length(x), ncol=dim(Cp)[2])
   Uq<-matrix(0, length(y), ncol=dim(Cq)[2])
@@ -1663,7 +1823,7 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
   return(out)
 }
 
-kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5){
+kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE){
   #stopifnot((is(smoothed, "logical"))
   if(smoothed==FALSE){
     if(kernel=="uniform"){
@@ -1698,18 +1858,26 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
     }
     else{
       if(hx==0)
+        if(altopt)
+          hx <- 9 / sqrt(100 * N^(2/5) - 81) * sqrt(varx)
+      else{
         if(KPEN==0)
           hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
       }
       if(hy==0)
+        if(altopt)
+          hy <- 9 / sqrt(100 * M^(2/5) - 81) * sqrt(vary)
+      else{
         if(KPEN==0)
           hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        else{
+          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        }
       }
     }
 
@@ -1768,6 +1936,7 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
   K<-dim(P)[2]
   r<-rowSums(P)
   s<-colSums(P)
+  M<-N
   meanx<-x%*%r
   varx<-(N/(N-1))*(x^2%*%r-meanx^2)
   meany<-y%*%s
@@ -1789,18 +1958,26 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
   }
   else{
     if(hx==0)
+      if(altopt)
+        hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+    else{
       if(KPEN==0)
         hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      else{
+        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      }
     }
     if(hy==0)
+      if(altopt)
+        hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+    else{
       if(KPEN==0)
         hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-    else{
-      hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      else{
+        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      }
     }
   }
   
@@ -1812,8 +1989,20 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
   
   gprimeY<-densityeq(s, hy, vary, meany, eqYx, y, kernel, slog, bunif)
   fprimeY<-densityeq(r, hx, varx, meanx, x, x, kernel, slog, bunif)
-  dFdreYSG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif)
-  dGdseYSG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif)
+  
+  if(altopt){
+    altfprim <- altoptdensity(r, hx, varx, meanx, x, x)
+    altgprim <- altoptdensity(s, hy, vary, meanx, eqYx, y)
+  }
+  if(altopt){
+    dFdreYSG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif, altopt=altopt, altfprim=altfprim)  					#Matrices of derivatives. JxJ.
+    dGdseYSG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif, altopt=altopt, altfprim=altgprim)	
+  }
+  else{
+    dFdreYSG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif)						#Matrices of derivatives. JxJ.
+    dGdseYSG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif)						#KxK
+  }
+
   Ur<-matrix(0, length(x), ncol=dim(DM)[2])
   i<-1
   while(i<length(x)*length(y)){
@@ -1838,7 +2027,6 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
   PREYx<-PREp(eqYx, y, r, s)
   PRE<-data.frame(PREYx)
   h<-data.frame(hx, hy)
-  M<-N
   
   if(irtx!=0 && irty!=0){
     irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
@@ -1924,59 +2112,50 @@ LordW<-function(p){
 }
 
 PEN<-function(h, r, x, var, mean, wpen, K, kernel, slog, bunif){
-
+  
   res<-numeric(length(x))
   a<-sqrt(var/(var+h^2))
   al<-sqrt(var/(var+((pi^2*slog^2)/3)*h^2))
   au<-sqrt(var/(var+((bunif^2)/3)*h^2))
-  for(i in 1:length(x)){
+  for(i in 1:length(x)){      
     ff<-0
-    for(j in 1:length(r)){
-      if(kernel=="gaussian"){
-        Rx<-(x[i]-a*x[j]-(1-a)*mean)/(a*h)
-        ff<-ff+r[j]*dnorm(Rx)/(a*h)
-      }
-      if(kernel=="logistic"){
-        Rx<-(x[i]-al*x[j]-(1-al)*mean)/(al*h)
-        ff<-ff+r[j]*(exp(-(Rx)/slog) / (slog*(1+exp(-(Rx)/slog))^2) /(al*h) )
-      }
-      if(kernel=="uniform"){
-        Rx<-(x[i]-au*x[j]-(1-au)*mean)/(au*h)
-        ff<-ff+r[j]*dunif(Rx, min=-bunif, max=bunif)/(au*h)
-      }
-    }
+    if(kernel=="gaussian")
+      ff <- sum(r*dnorm((x[i]-a*x-(1-a)*mean)/(a*h))/(a*h) )
+    if(kernel=="stdgaussian")
+      ff <- sum(r*dnorm((x[i]-x)/(h))/(h) )
+    if(kernel=="logistic")
+      ff <- sum(r*(exp(-((x[i]-al*x-(1-al)*mean)/(al*h))/slog) / (slog*(1+exp(-((x[i]-al*x-(1-al)*mean)/(al*h))/slog))^2) /(al*h)))
+    if(kernel=="uniform")
+      ff <- sum(r*dunif((x[i]-au*x-(1-au)*mean)/(au*h), min=-bunif, max=bunif)/(au*h))
     res[i]<-ff
   }
   pen1<-sum((r-res)^2)
-	pen2<-0
-	for(i in 1:length(r)){
-		dfleft<-0
-		dfright<-0
-		for(j in 1:length(r)){
-      if(kernel=="gaussian"){
-  			dflefttemp<--r[j]*dnorm(((x[i]-(wpen))-a*x[j]-(1-a)*mean)/(a*h))*((x[i]-(wpen))-a*x[j]-(1-a)*mean)/((a*h)^2)
-  			dfrighttemp<--r[j]*dnorm(((x[i]+(wpen))-a*x[j]-(1-a)*mean)/(a*h))*((x[i]+(wpen))-a*x[j]-(1-a)*mean)/((a*h)^2)
-      }
-      if(kernel=="logistic"){
-        Rxl<-(x[i]-wpen-al*x[j]-(1-al)*mean)/(al*h)
-        Rxr<-(x[i]+wpen-al*x[j]-(1-al)*mean)/(al*h)
-        dflefttemp<-(1/(slog*(al*h)^2))*r[j]*(exp(-(Rxl)/slog) / (slog*(1+exp(-(Rxl)/slog))^2) /(al*h) )*(1-2*(1/(1+exp(-(Rxl)/slog))))
-        dfrighttemp<-(1/(slog*(al*h)^2))*r[j]*(exp(-(Rxr)/slog) / (slog*(1+exp(-(Rxr)/slog))^2) /(al*h) )*(1-2*(1/(1+exp(-(Rxr)/slog))))
-      }
-       if(kernel=="uniform"){
-         dflefttemp<-0
-         dfrighttemp<-0
-       }
-  		dfleft<-dfleft+dflefttemp			
-			dfright<-dfright+dfrighttemp
-		}	
-		if(dfleft<0&&dfright>0 || dfleft>0&&dfright<0)
-			A<-1
-		else
-			A<-0
-		pen2<-A+pen2
-	}					
-	return(pen1+K*pen2)
+  pen2<-0
+  for(i in 1:length(r)){
+    dfleft<-0
+    dfright<-0
+    if(kernel=="gaussian"){
+      dfleft<-sum(-r*dnorm(((x[i]-(wpen))-a*x-(1-a)*mean)/(a*h))*((x[i]-(wpen))-a*x-(1-a)*mean)/((a*h)^2))
+      dfright<-sum(-r*dnorm(((x[i]+(wpen))-a*x-(1-a)*mean)/(a*h))*((x[i]+(wpen))-a*x-(1-a)*mean)/((a*h)^2))
+    }
+    if(kernel=="logistic"){
+      Rxl<-(x[i]-wpen-al*x-(1-al)*mean)/(al*h)
+      Rxr<-(x[i]+wpen-al*x-(1-al)*mean)/(al*h)
+      dfleft<-sum((1/(slog*(al*h)^2))*r*(exp(-(Rxl)/slog) / (slog*(1+exp(-(Rxl)/slog))^2) /(al*h) )*(1-2*(1/(1+exp(-(Rxl)/slog)))))
+      dfright<-sum((1/(slog*(al*h)^2))*r*(exp(-(Rxr)/slog) / (slog*(1+exp(-(Rxr)/slog))^2) /(al*h) )*(1-2*(1/(1+exp(-(Rxr)/slog)))))
+    }
+    if(kernel=="uniform"){
+      dfleft<-0
+      dfright<-0
+    }
+    
+    if(dfleft<0&&dfright>0 || dfleft>0&&dfright<0)
+      A<-1
+    else
+      A<-0
+    pen2<-A+pen2
+  }					
+  return(pen1+K*pen2)
 }
 
 PREp<-function(eq, obs, r, s){

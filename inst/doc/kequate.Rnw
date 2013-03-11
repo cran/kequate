@@ -1,0 +1,952 @@
+\documentclass[nojss]{jss}
+\usepackage[T1]{fontenc}
+\usepackage[latin9]{inputenc}
+\usepackage{amstext}
+\usepackage{amsmath}
+\usepackage{setspace}
+\usepackage{Sweave}
+\showboxdepth=\maxdimen
+\showboxbreadth=\maxdimen
+%\VignetteIndexEntry{Test Equating Using the Kernel Method with the R Package kequate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% declarations for jss.cls %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% almost as usual
+\author{Bj\"orn Andersson\\Uppsala University \And 
+       Kenny Br\"anberg\\Ume{\aa} University\And Marie Wiberg\\Ume{\aa} University}
+\title{Test Equating Using the Kernel Method with the \proglang{R} Package \pkg{kequate}}
+
+%% for pretty printing and a nice hypersummary also set:
+\Plainauthor{Bjorn Andersson, Kenny Branberg, Marie Wiberg} %% comma-separated
+\Plaintitle{Test Equating Using the Kernel Method with the R Package kequate} %% without formatting
+\Shorttitle{The \proglang{R} Package \pkg{kequate}} %% a short title (if necessary)
+%% an abstract and keywords
+\Abstract{In standardized testing the equating of tests is important in order to ensure fairness for test-takers. Recently, the kernel method of test equating has gained popularity. The kernel method of test equating comprises five steps: 1) pre-smoothing, 2) estimation of the score probabilities, 3) continuization, 4) equating, and 5) computing the standard error of equating and the standard error of equating difference.
+We present the software package \pkg{kequate} for \proglang{R}. \pkg{kequate} implements the kernel method of test equating for six different equating designs: equivalent groups, single group, counter balanced, non-equivalent groups with anchor test using either chain equating or post-stratification equating and non-equivalent groups using covariates. For all designs, it is possible to conduct an item-response theory observed score equating as a supplement. Diagnostic tools aiding in the search for a proper log-linear model in the pre-smoothing step for use in conjunction with the \proglang{R} function \code{glm} are also included.
+}
+\Keywords{kernel equating, observed-score test equating, item-response theory, \proglang{R}}
+\Plainkeywords{kernel equating, observed-score test equating, item-response theory, R}%% without formatting
+%% at least one keyword must be supplied
+
+%% publication information
+%% NOTE: Typically, this can be left commented and will be filled out by the technical editor
+%% \Volume{13}
+%% \Issue{9}
+%% \Month{September}
+%% \Year{2004}
+%% \Submitdate{2004-09-29}
+%% \Acceptdate{2004-09-29}
+
+%% The address of (at least) one author should be given
+%% in the following format:
+\Address{
+Bj\"orn Andersson\\
+Department of Statistics\\
+Uppsala University, Box 513\\
+SE-751 20 Uppsala, Sweden\\
+E-mail: \email{bjorn.andersson@statistik.uu.se}\\
+URL: \url{http://katalog.uu.se/empInfo?id=N11-1505}
+
+  Kenny Br\"anberg\\
+  Department of Statistics, USBE\\
+ Ume{\aa} University\\
+  SE-901 87 Ume{\aa}, Sweden\\
+  E-mail: \email{kenny.branberg@stat.umu.se}\\
+  URL: \url{http://www.usbe.umu.se/om-handelshogskolan/personal/kebr0001}
+  
+Marie Wiberg\\
+ Department of Statistics, USBE\\
+ Ume{\aa} University\\
+  SE-901 87 Ume{\aa}, Sweden\\
+  E-mail: \email{marie.wiberg@stat.umu.se}\\
+  URL: \url{http://www.usbe.umu.se/om-handelshogskolan/personal/maewig95}
+}
+%% It is also possible to add a telephone and fax number
+%% before the e-mail in the following format:
+%% Telephone: +43/1/31336-5053
+%% Fax: +43/1/31336-734
+
+%% for those who use Sweave please include the following line (with % symbols):
+%% need no \usepackage{Sweave.sty}
+
+%% end of declarations %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+<<echo=FALSE>>=
+options(prompt = "R> ", continue = "+  ", width = 70, useFancyQuotes = FALSE)
+@
+\section{Introduction}
+\label{section1}
+When standardized achievement tests are used the main concern is that it is fair to the individual test takers and between current and former test takers. In order to ensure fairness when a test is given at different time points or when different versions of the same standardized test are given, a statistical procedure known as equating is used. Equating is a statistical process which is used to adjust scores on different test forms so that the test forms can be used interchangeably \citep{KolenBrennan2004}. 
+There are five important equating requirements which need to be satisfied in order for a function to be called an equating. See e.g. \citet{davihollanthayer2004}, \citet{lord80} and \citet{KolenBrennan2004}. First, the equal construct requirement, which means that only tests which measure the same construct should be equated. Second, the equal reliability requirement, meaning that the tests need to be of equal reliability in order to be equated. Third, the symmetry requirement which requires the equating transformations to be symmetrical. Fourth, the equity requirement, which means that it should be a matter of indifference to each test taker whether test form X or test form Y is administered. Fifth, the population invariance requirement, which means that the equating should be the same regardless of the group of test takers on which the equating was performed. There exist many equating methods which to the most extent satisfy these requirements. In this guide we will concentrate on observed-score equating, and more specifically on the observed-score kernel method of test equating which fulfill these requirements \citep{davihollanthayer2004}.
+
+The kernel method of test equating \citep{davihollanthayer2004} is an observed-score test equating method comprising five steps: pre-smoothing, score probability estimation, continuization, computation of the equating function and computation of the standard errors of the equating function. The kernel equating method has a number of advantages over other observed-score test equating methods. In particular, it provides explicit formulas for the standard errors of equating in five different designs and directly uses information from the pre-smoothing step in the estimation of these. Kernel equating can also handle equating using covariates in a non-equivalent groups setting and provides a method to compare two different equatings using the standard error of the difference between two equating functions. Since this is a unified equating framework which has a large applicability both for the testing industry, the research community and practitioners it is of high interest to create software that anyone with an interest in equating can use.
+This manual introduces and exemplifies the package \pkg{kequate} \citep{AnderssonBranbergWiberg12}, an implementation of the kernel method of test equating using five different data collection designs in the statistical programming environment \proglang{R} \citep{rteam11}, and is structured as follows. In Section~\ref{section2} the kernel equating framework is introduced. Section~\ref{section3} contains a description of how to aggregate and sort data on the individual level and how to estimate log-linear models with the \proglang{R} function \code{glm()}\citep[\pkg{stats}][]{rteam11}. We give examples for all the included equating designs and instruct how to decide between different model specifications using tools provided by \pkg{kequate}. The package \pkg{kequate} is described in Section~\ref{section4} and in Section~\ref{section5} examples of equating using \pkg{kequate} for all equating designs are given.
+
+\section{Theoretical background}
+\label{section2}
+This section will comprise a brief description of the kernel method
+of test equating. For a complete description please read the excellent
+book by \citet {davihollanthayer2004}. However, before we
+can go through the steps of kernel equating we need to describe the
+different data collection designs used in this study. The first four
+are standard data collection designs (see, e.g., \citeauthor{KolenBrennan2004}, \citeyear{KolenBrennan2004}, or \citeauthor{davihollanthayer2004}, \citeyear{davihollanthayer2004}). The last data collection
+design is a more uncommon case and is used if we have additional information which is correlated with the test scores.
+For a detailed description please refer to \citet{kenbra10} and \citet{kebrmawi11}.
+
+\subsection{Data collection designs}
+
+We have incorporated the possibility of five different data collection
+designs: 
+\begin{itemize}
+\item The equivalent groups design (EG): Two independent random samples
+are drawn from a common population of test takers, P, and the test
+form X is administered to one sample while test form Y is administered
+to the other sample. No test takers are taking both X and Y. 
+\item The single group design (SG): Two test forms X and Y are administered
+to the same group of test takers drawn from a single population P.
+All test takers are taking both X and Y. 
+\item The counter balanced design (CB): Two test forms X and Y are administered
+to the same group of test takers drawn from a single population P.
+One part of the group first takes test form X and then test form Y.
+The other part of the group takes the test forms in a counterbalanced
+order, i.e., first test form Y and then test form X. This could also
+be viewed as two EG designs or as two SG designs.
+\item The Non-Equivalent groups with Anchor Test design (NEAT): A sample
+of test takers from population P are administered test form X, and
+another sample of test takers from population Q are administered test
+form Y. Both samples are also administered a set of common (i.e.,
+anchor) items (test form A). With the NEAT design there are two commonly
+used equating methods: 
+
+\begin{itemize}
+\item Chain Equating (CE): The idea is to first link test form X to the
+anchor test form A and then link test form A to test form Y. 
+\item Post-Stratification Equating (PSE): The idea is to link both test
+form X and test form Y to test form A using a synthetic population,
+which is a blend of populations P and Q. The equating is performed
+on the synthetic population.
+\end{itemize}
+\item The Non-Equivalent groups with Covariates design (NEC): A sample of
+test takers from population P are administered test form X, and another
+sample of test takers from population Q are administered test form
+Y. For both samples we also have observations on background variables
+correlated with the test scores (i.e., covariates). Using a method similar to the NEAT PSE case, a synthetic population is defined and an equating is performed on this population.
+\end{itemize}
+
+
+\subsection{The kernel method of test equating}
+\begin{singlespace}
+Following the notation in \citet{davihollanthayer2004}, let X and
+Y be the names of the two test forms to be equated and $\mathbf{X}$
+and $\mathbf{Y}$ the scores on X and Y. We will assume that the test takers
+taking the tests are random samples from a population of test takers,
+so $\mathbf{X}$ and $\mathbf{Y}$ are regarded as random variables.
+Observations on $\mathbf{X}$ will be denoted by $x_{j}$ for $j=1,\ldots,J$.
+Observations on $\mathbf{Y}$ will be denoted by $y_{k}$ for $k=1,\ldots,K$.
+If $\mathbf{X}$ and $\mathbf{Y}$ are number right scores, \emph{J}
+and \emph{K }will be the number of items plus one.
+
+We will use
+\begin{equation}
+\label{eq1}
+r_{j}=P\left(\mathbf{X}=x_{j}\mid\textrm{T}\right)
+\end{equation}
+for the probability of a randomly selected individual in population
+T scoring $x_{j}$ on test X, and 
+
+\begin{equation}
+\label{eq2}
+s_{k}=P\left(\mathbf{Y}=y_{k}\mid\textrm{T}\right)
+\end{equation}
+for the probability of a randomly selected individual in population
+T scoring $y_{k}$ on test Y.
+
+The goal is to find the link between $\mathbf{X}$ and $\mathbf{Y}$
+in the form of an equipercentile equating function in the target population
+T, the population on which the equating is to be done. The equipercentile
+equating function is defined in terms of the cumulative distribution
+functions (cdf's) of $\mathbf{X}$ and $\mathbf{Y}$ in the target
+population. Let
+\begin{equation}
+\label{eq3}
+F\left(x\right)=P\left(\mathbf{X}\leq x\mid\textrm{T}\right)
+\end{equation}
+and
+\begin{equation}
+\label{eq4}
+G\left(y\right)=P\left(\mathbf{Y}\leq y\mid\textrm{T}\right)
+\end{equation}
+be the cdf's of $\mathbf{X}$ and $\mathbf{Y}$ over the target population
+T. If the two cdf's are continuous and strictly increasing the equipercentile
+equating function of $\mathbf{X}$ to $\mathbf{Y}$ is defined by
+
+\begin{equation}
+\label{eq5}
+y=\textrm{Equi}_{Y}\left(x\right)=G^{-1}\left(F\left(x\right)\right).
+\end{equation}
+
+The kernel method of test equating includes five steps: 1) pre-smoothing, 2) estimation of the score probabilities, 3) continuization, 4) equating, and 5) computing the standard error of equating (SEE) and the standard error of equating difference (SEED).
+
+\end {singlespace}
+
+\subsubsection*{Step 1: Pre-smoothing}
+
+In pre-smoothing, a statistical model is fitted to the empirical distribution
+obtained from the sampled data. We assume that much of the irregularities
+seen in the empirical distributions are due to sampling error, and
+the goal of smoothing is to reduce this error. In equating the raw data are two sets of univariate, bivariate or
+multivariate discrete distributions (depending on the data collection
+design). One way to perform pre-smoothing is by fitting a
+polynomial log-linear model to the proportions obtained from
+the raw data. We will show this for the NEAT design. For details the interested reader is refered to, i.e., \citet{HollandThayer2000} or \citet{davihollanthayer2004}.
+
+In the NEAT design each test taker has a score on one of the test
+forms and a score on an anchor test. Let $\mathbf{A}$ be the score on the anchor test form A. Observations on
+$\mathbf{A}$ will be denoted by $a_{l}$ for $l=1,\ldots,L$. Let
+$n_{Xjl}$ be the number of test takers with $\mathbf{X}=x_{j}$ and
+$\mathbf{A}=a_{l}$, and $n_{Ykl}$ be the number of test takers with
+$\mathbf{Y}=y_{k}$ and $\mathbf{A}=a_{l}$ . 
+We assume that $\mathbf{n}_{XA}=\left(n_{X11},\ldots,n_{XJL}\right)^{t}$ and $\mathbf{n}_{YA}=\left(n_{Y11},\ldots,n_{YKL}\right)$ are independent and that they each have a multinomial distribution. The log likelihood function for $\mathbf{X}$ is given by 
+\begin{equation}
+\label{eq6}
+L_{X}=c_{X}+\sum_{j,l}n_{Xjl}\log\left(p_{jl}\right)
+\end{equation}
+where $p_{jl}=P\left(\mathbf{X}=x_{j},\mathbf{A}=a_{l}\mid T\right)$.
+The target population $T$ is a mixture of the two populations $P$
+and $Q$, $T=wP+\left(1-w\right)Q,$ where $0\leq w\leq1$.
+
+The log-linear model for $p_{jl}$ is given by
+\begin{equation}
+\label{eq7}
+\log\left(p_{jl}\right)=\alpha_{X}+\sum_{i=1}^{T_{X}}x_{j}^{i}+\sum_{i=1}^{T_{A}}a_{l}^{i}+\sum_{i=1}^{I_{X}}\sum_{i^{\prime}=1}^{I_{A}}x_{j}^{i}a_{l}^{i^{\prime}}.
+\end{equation}
+The log likelihood function for $\mathbf{Y}$ and the log-linear model
+for $q_{kl}=P\left(\mathbf{Y}=y_{k},\mathbf{A}=a_{l}\mid T\right)$
+can be written in a similar way. The log-linear models can also contain additional parameters, to take care
+of lumps and spikes in the marginal distributions. The specification
+of such models is however not discussed further herein. (The interested
+reader is referred to \citeauthor{davihollanthayer2004}, \citeyear{davihollanthayer2004}).
+
+\subsubsection*{Step 2: Estimation of the score probabilities }
+The score probabilities are obtained from the estimated score distributions
+from step 1. The most important part of step 2 is the definition and
+use of the design function. The design function is a function mapping
+the (estimated) population score distributions into (estimates of)
+$\mathbf{r}$ and $\mathbf{s}$, where $\mathbf{r}=\left(r_{1},r_{2},\ldots,r_{J}\right)^{t}$
+and $\mathbf{s}=\left(s_{1},s_{2},\ldots,s_{K}\right)$. The function
+will vary between different data collection designs. For example,
+in an EG design it is simply the identity function as compared with
+PSE in a NEAT design where the design function is given by
+\begin{equation}
+\label{eq8}
+\
+\left(\begin{array}{c}
+\mathbf{r}\\
+\mathbf{s}
+\end{array}\right)=\left(\begin{array}{c}
+\sum_{l}\left(w+\frac{\left(1-w\right)\sum_{k}q_{kl}}{\sum_{j}p_{jl}}\right)\mathbf{p}_{l}\\
+\sum_{l}\left(\left(1-w\right)+\frac{w\sum_{j}p_{jl}}{\sum_{k}q_{kl}}\right)\mathbf{q}_{l}
+\end{array}\right)
+\
+\end{equation}
+where $\mathbf{p}_{l}=\left(p_{1l},p_{2l},\ldots,p_{Jl}\right)^{t}$
+and $\mathbf{q}_{l}=\left(q_{1l},q_{2l},\ldots,q_{Kl}\right)^{t}$. 
+
+\subsubsection*{Step 3: Continuization }
+Test score distributions are discrete and the definition of the equipercentile
+equating function given in Equation~\ref{eq5} cannot be used unless we deal with this
+discreteness in some way. Prior to the development of kernel equating, linear interpolation
+was usually used to obtain continuous cdf's from the discrete cdf's
+(\citeauthor{KolenBrennan2004}, \citeyear{KolenBrennan2004}). In kernel equating continuous cdf's are
+used as approximations to the estimated discrete step-function cdf's
+generated in the pre-smoothing step. Following \citet{davihollanthayer2004}
+we will use a Gaussian kernel. Logistic and uniform kernels have also been described in the literature \citep{LeeDavier2012} and are available as options in \pkg{kequate}. In what follows, only the formulas for $\mathbf{X}$ are shown but the computations for $\mathbf{Y}$ are analogous. The discrete cdf
+$F\left(x\right)$ is approximated by
+\begin{equation}
+\label{eq9}
+F_{h_{X}}\left(x\right)=\sum_{j}r_{j}\Phi\left(\frac{x-a_{X}x_{j}-\left(1-a_{X}\right)\mu_{X}}{h_{X}a_{X}}\right)
+\end{equation}
+where $\mu_{X}=\sum_{j}x_{j}r_{j}$ is the mean of $\mathbf{X}$ in
+the target population T, $h_{X}$ is the bandwidth, and $\Phi\left(\cdot\right)$
+is the standard Normal distribution function. The constant $a_{X}$
+is defined as 
+\begin{equation}
+\label{eq10}
+a_{X}=\sqrt{\frac{\sigma_{X}^{2}}{\sigma_{X}^{2}+h_{X}^{2}}}
+\end{equation}
+where $\sigma_{X}^{2}=\sum_{j}\left(x_{j}-\mu_{X}\right)^{2}r_{j}$
+is the variance of $\mathbf{X}$ in the target population T. There
+are several ways of choosing the bandwidth $h_{X}$. We want the density
+functions to be as smooth as possible without losing the characteristics
+of the distributions. We recommend the use of a penalty function to
+deal with this problem, see \citet{davihollanthayer2004}. For $h_{X}$ the penalty
+function is given by
+\begin{equation}
+\label{eq11}
+\mathbf{PEN}\left(h_{X}\right)=\sum_{j}\left(\hat{r}_{j}-\hat{f}_{h_{X}}\left(x_{j}\right)\right)^{2}+\kappa\sum_{j}B_{j}
+\end{equation}
+where $\hat{f}_{h_{X}}\left(x\right)$ is the estimated density function,
+i.e., the derivative of $\hat{F}_{h_{X}}\left(x\right)$ and $\kappa$
+is a constant. $B_{j}$ is an indicator that is equal to one if the
+derivative of the density function is negative a little to the left
+of $x_{j}$ and positive a little to the right of $x_{j}$, or if
+the derivative is positive a little to the right of $x_{j}$ and
+negative a little to the right of $x_{j}$. Otherwise $B_{j}$ is
+equal to zero. With a bandwidth that minimizes $\mathbf{PEN}\left(h_{X}\right)$ in Equation~\ref{eq11} the estimated
+continuous density function $\hat{f}_{h_{X}}\left(x\right)$ will be
+a good approximation of the discrete distribution of $\mathbf{X}$,
+without too many modes. 
+
+\subsubsection*{Step 4: Equating }
+
+Assume that we are interested in equating $\mathbf{X}$ to $\mathbf{Y}$.
+If we use the continuized cdf's described previously we can define
+the kernel equating function as
+\begin{equation}
+\label{eq12}
+\hat{e}_{Y}\left(x\right)=\hat{G}_{h_{Y}}^{-1}\left(\hat{F}_{h_{X}}\left(x\right)\right),
+\end{equation}
+ which is analog to the equipercentile equating
+function defined in Equation~\ref{eq5}.
+
+
+\subsubsection*{Step 5: Calculating the standard error of equating (SEE) and the standard error of equating difference (SEED)}
+One of the advantages with the kernel method of test equating is that
+it provides a neat way to compute the standard error of equating (SEE).
+The SEE for equating $\mathbf{X}$ to $\mathbf{Y}$ is given by
+\begin{equation}
+\label{eq13}
+\textrm{SEE}_{Y}\left(x\right)=\sqrt{\textrm{Var}\left(\hat{e}_{Y}\left(x\right)\right)}.
+\end{equation}
+In kernel equating the $\delta$-method is used to compute an estimate
+of the SEE. Let $\mathbf{R}$ and $\mathbf{S}$ be the vectors
+of pre-smoothed score distributions. If $\mathbf{R}$ and $\mathbf{S}$
+are estimated independently the covariance can be written as
+\begin{equation}
+\label{eq14}
+\textrm{Cov}\left(\begin{array}{c}
+\hat{\mathbf{R}}\\
+\hat{\mathbf{S}}
+\end{array}\right)=\left(\begin{array}{cc}
+\mathbf{C}_{R}\mathbf{C}_{R}^{t} & 0\\
+0 & \mathbf{C}_{S}\mathbf{C}_{S}^{t}
+\end{array}\right)=\mathbf{C}\mathbf{C}^{t}
+\end{equation}
+where
+\begin{equation}
+\label{eq15}
+\mathbf{C}=\left(\begin{array}{cc}
+\mathbf{C}_{R} & 0\\
+0 & \mathbf{C}_{S}
+\end{array}\right).
+\end{equation}
+The pre-smoothed score distributions are transformed into $\mathbf{r}$
+and $\mathbf{s}$ using the design function. The Jacobian of this function is 
+\begin{equation}
+\label{eq16}
+\mathbf{J}_{DF}=\left(\begin{array}{cc}
+\frac{\partial\mathbf{r}}{\partial\mathbf{R}} & \frac{\partial\mathbf{r}}{\partial\mathbf{S}}\\
+\frac{\partial\mathbf{s}}{\partial\mathbf{R}} & \frac{\partial\mathbf{s}}{\partial\mathbf{S}}
+\end{array}\right).
+\end{equation}
+In the final step of kernel equating, estimates of $\mathbf{r}$
+and $\mathbf{s}$ are used in the equating function to calculate
+equated scores. The Jacobian of the equating function is given by
+\begin{equation}
+\label{eq17}
+\mathbf{J}_{e_{Y}}=\left(\begin{array}{cc}
+\frac{\partial e_{Y}}{\partial\mathbf{r}}, & \frac{\partial e_{Y}}{\partial\mathbf{s}}\end{array}\right).
+\end{equation}
+If $\left(\begin{array}{c}
+\hat{\mathbf{R}}\\
+\hat{\mathbf{S}}
+\end{array}\right)$ is approximately normally distributed with mean $\left(\begin{array}{c}
+\mathbf{R}\\
+\mathbf{S}
+\end{array}\right)$ and variance given in Equation~\ref{eq14}, then 
+\begin{equation}
+\label{eq18}
+\textrm{Var}\left(\hat{e}_{Y}\left(x\right)\right)=\left\Vert \mathbf{J}_{e_{Y}}\mathbf{J}_{DF}\mathbf{C}\right\Vert ^{2}
+\end{equation}
+and
+\begin{equation}
+\label{eq19}
+\textrm{SEE\ensuremath{_{Y}}}\left(x\right)=\left\Vert \mathbf{J}_{e_{Y}}\mathbf{J}_{DF}\mathbf{C}\right\Vert 
+\end{equation}
+where $\left\Vert \mathbf{\upsilon}\right\Vert $ denotes the
+Euclidian norm of vector $\mathbf{\upsilon}$.\\
+The standard error of equating difference (SEED), which can be used
+to compare different kernel equating functions, is defined as 
+\begin{equation}
+\label{eq20}
+\textrm{SEED}_{Y}\left(x\right)=\sqrt{Var\left(\hat{e}_{1}\left(x\right)-\hat{e}_{2}\left(x\right)\right)}=\left\Vert \mathbf{J}_{e_{1}}\mathbf{J}_{DF}\mathbf{C}-\mathbf{J}_{e_{2}}\mathbf{J}_{DF}\mathbf{C}\right\Vert, 
+\end{equation}
+i.e., the Euclidian norm of the difference between the two vectors
+$\mathbf{J}_{e_{1}}\mathbf{J}_{DF}\mathbf{C}$ and $\mathbf{J}_{e_{2}}\mathbf{J}_{DF}\mathbf{C}$. 
+The equating function is designed to transform the continuous approximation  of the distribution of $\mathbf{X}$ into the continuous approximation of the distribution of $\mathbf{Y}$. In order to diagnose the effectiveness of the equating function we need to consider what this transformation does to the discrete distribution of $\mathbf{X}$. One way of doing this is to compare the moments of the distribution of $\mathbf{X}$ with the moments of the distribution of $\mathbf{Y}$. Following  \citet {davihollanthayer2004} we use the Percent Relative Error in the $p^{th}$ moments, the $\mathrm{PRE}\left(p\right)$, which is defined as
+\begin{equation}
+\label{eq21}
+\mathrm{PRE}\left(p\right)=100\frac{\mu_{p}\left(e_{Y}\left(\mathbf{X}\right)\right)-\mu_{p}\left(\mathbf{Y}\right)}{\mu_{p}\left(\mathbf{Y}\right)}
+\end{equation}
+where $\mu_{p}\left(e_{Y}\left(\mathbf{X}\right)\right)=\sum_{j}\left(e_{Y}\left(x_{j}\right)\right)^{p}r_{j}$
+and $\mu_{p}\left(\mathbf{Y}\right)=\sum_{k}\left(y_{k}\right)^{p}s_{k}$.
+
+\section[Pre-smoothing using R]{Pre-smoothing using \proglang{R}}
+\label{section3}
+     Before the actual equating can begin, the raw score data usually needs to be processed via a step called pre-smoothing. In this step, the distribution of the score probabilities is estimated using a log-linear model. The main function of \pkg{kequate} has been designed to be used in conjunction with the \proglang{R} function \code{glm()}. The input to \pkg{kequate} thus preferably consists of objects created by \code{glm()} but the option exists to provide  vectors and matrices containing estimated probabilities and design matrices from the log-linear model specification. There is also the option of using observed proportions. In this section, we first describe a method for converting data from the individual level into frequencies of score values for the population as a whole and then we describe and exemplify the estimation of the log-linear models for each data design. Lastly we discuss how the model fit for the specified log-linear models can be assessed.
+
+\subsection{Aggregating and sorting the data}
+\label{section31}
+     Test data often consists of data at the individual level, i.e. there is a data frame, matrix or vector containing the score for each individual taking the test along with other possible information about this individual such as covariates or the score on an anchor test. In order to use such data in equating, the data needs to be converted into frequencies for each combination of score values or score value and covariate values. \pkg{kequate} contains the function \code{kefreq()} which can handle univariate and bivariate data.
+     \code{kefreq()} has the following function call: 
+     
+\begin{CodeChunk}
+\begin{CodeInput}
+kefreq(in1, xscores, in2, ascores)
+\end{CodeInput}
+\end{CodeChunk}
+\code{in1} is the individual data for test X, \code{xscores} is the vector of possible scores for test X, \code{in2} is the individual data for the parallel test Y or anchor test A (if applicable) and \code{ascores} is the vector of possible scores for the anchor test A.
+     If the interest lies only in retrieving the score frequencies of a single test with possible scores from integers 0 to 20 and the data is in a vector \code{simeq$bivar1$X}, the frequencies are obtained by writing
+<<echo=FALSE>>=
+load("eqguide.RData")
+load("CBsim.RData")
+library(kequate)
+@
+<<echo=TRUE>>=
+freq <- kefreq(simeq$bivar1$X, 0:20)
+@
+This will create a data frame with two vectors: \code{freq$X} denoting the score values and \code{freq$frequency} containing the frequencies for the particular score values. When equating using the equivalent groups (EG) design, the frequencies for each of the tests can be obtained in this manner.
+     For a single group (SG) or non-equivalent groups with anchor test (NEAT) design, we need to consider scores from two separate tests for each individual and compute the frequency for each combination of score values. 
+%     We first consider an SG design where we have tests X and Y with integer score values from 0 to 20, which will make our vector of bivariate frequencies 21*21=441 cells long. In this case it is necessary to specify the vectors containing the score values of each individual on test X and test Y, but we need only specify one score vector since it is common to both tests. For a data frame \code{testdata} with variables \code{testX} and \code{testY}, we can write
+%<<echo=TRUE>>=
+%freq <- kefreq(testdata$testX, 0:20, testdata$testY)
+%@
+%This will create a data frame containing the frequencies for each score combination along with the score values on X and Y associated with each frequency, ordered first by the score values of Y and then by the score values of X.
+     In a NEAT design, for parallel tests X and Y with score values from 0 to 20 and an anchor test A with score values 0 to 10, we want two vectors of size 21*11=231. In this case, we assume that the data on the individual level from population P is in a data frame with vectors  \code{X} and \code{A} containing the score of each test for every individual. By writing
+<<echo=TRUE>>=
+SGfreq <- kefreq(simeq$bivar1$X, 0:20, simeq$bivar1$A, 0:10)
+@
+<<echo=FALSE>>=
+SGfreq <- kefreq(simeq$bivar1$X, 0:20, simeq$bivar1$A, 0:10)
+PNEAT <- kefreq(simeq$bivar1$X, 0:20, simeq$bivar1$A, 0:10)
+QNEAT <- kefreq(simeq$bivar2$Y, 0:20, simeq$bivar2$A, 0:10)
+@
+we retrieve the frequencies for each combination of scores on tests X and A, in a data frame ordered first by the score on test A and then by the score on test X. 
+     The observed frequencies retrieved by \code{kefreq()} can now be used to estimate the smoothed score distributions using log-linear models as described in the following.
+
+\subsection[Estimating the score probabilities with the R function glm()]{Estimating the score probabilities with the \proglang{R} function \code{glm()}}
+\label{section32}
+     The procedure for estimating the score probability distributions differs between the equating designs and the different procedures are discussed separately in what follows, exemplifying the estimation methods with the \proglang{R} function \code{glm()}. The proportions follow a multinomial distribution in theory, but this is equivalent to the frequencies being Poisson-distributed, given the sum of the frequencies. So after dividing the resulting fitted values with the sum of the frequencies, we will retrieve the same estimates as when having modelled the proportions directly. Since modelling Poisson data is straight forward in \proglang{R}, we model the frequencies themselves rather than the proportions.
+\subsubsection{Equivalent groups design}
+In an EG design, two groups that have been randomly selected from a common population are given separate but parallel tests. The resulting estimated frequencies can then be used to equate the two tests used. In selecting the univariate model for each of the two groups, the statistical criterion AIC is recommended to be used since it has proved to be the most effective among a number of selection strategies \citep{HollandMoses2009}. A simple method is to start with the ten first moments and then remove the highest moments and take notice of the change in AIC. When the AIC no longer decreases the model is satisfactory. Using the function \code{glm()} in \proglang{R}, with \code{FXEG} being a data frame containing a vector \code{freq} with the frequencies for each score value and a vector \code{X} of possible score values, we can write:
+
+<<echo=TRUE>>=
+EGX <- glm(freq~I(X) + I(X^2) + I(X^3) + I(X^4) + I(X^5), family = 
+"poisson", data = FXEG, x = TRUE)
+@
+<<echo=FALSE>>=
+EGY <- glm(freq~I(Y) + I(Y^2) + I(Y^3) + I(Y^4) + I(Y^5), family = 
+"poisson", data = FYEG, x = TRUE)
+@
+Together with the \code{glm} object from the model for Y, the object created can be supplied to \pkg{kequate} to conduct an equating.
+
+\subsubsection{Single group design}
+The SG design requires the estimation of a bivariate log-linear model for test scores on X and A. The first step is to estimate the two univariate score distributions for tests X and A. This is done in the same way as in the EG design above. After having obtained satisfactory univariate models, the bivariate model needs to be estimated. The bivariate model should include the univariate moments of the respective univariate log-linear models, along with cross-moments between the two tests X and A. We consider for inclusion in the bivariate log-linear model the cross-moments up to the highest moments contained in the univariate log-linear models. By way of a criterion such as the AIC or a likelihood ratio test, the different models are then evaluated and the most appropriate one is chosen. With the \proglang{R} function \code{glm()}, with a data frame \code{SGfreq} containing vectors with the score frequencies \code{frequency} and score values \code{X} and \code{A}, we estimate the log-linear model with two univariate moments for each of the tests and the cross-moments $X*A$ and $X^2*A^2$ by writing
+<<echo=TRUE>>=
+SGglm <- glm(frequency~I(X) + I(X^2) + I(A) + I(A^2) + I(A^3) + I(X):I(A) 
++ I(X^2):I(A^2), data = SGfreq, family = "poisson", x = TRUE)
+@
+\subsubsection{Counterbalanced design}
+In a counterbalanced design, two independent random groups from a common population take the same tests X and Y to be equated. However, they take the tests in a different order, so that one group first takes test X and then test Y, while the other group first takes test Y and then test X. The purpose of this setup is to ensure that any order effects are equally pronounced for both of the tests. To further ensure the validity of the equating, the sample sizes are usually chosen to be equal or almost equal between the groups. Pre-smoothing for the counterbalanced design is done exactly like for a SG design, except in this case we fit separate log-linear models for each of the two independent random groups.
+<<echo=FALSE>>=
+freqCB12 <- kefreq(CBeq12[,1], 0:40, CBeq12[,2])
+freqCB21 <- kefreq(CBeq21[,1], 0:40, CBeq21[,2])
+glmCB12 <- glm(frequency~I(X)+I(X^2)+I(X^3)+I(X^3)+I(Y)+I(Y^2)+I(Y^3)+I(Y^4)+I(X):I(Y)+I(X^2):I(Y)+I(X):I(Y^2)+I(X^2):I(Y^2), data=freqCB12, family=poisson, x=TRUE)
+glmCB21 <- glm(frequency~I(X)+I(X^2)+I(X^3)+I(X^3)+I(Y)+I(Y^2)+I(Y^3)+I(Y^4)+I(X):I(Y)+I(X^2):I(Y)+I(X):I(Y^2)+I(X^2):I(Y^2), data=freqCB21, family=poisson, x=TRUE)
+@
+\subsubsection{Non-equivalent groups with anchor test design}
+     A NEAT design contains two independent single group designs, resulting in data for two joint distributions P and Q. The components of P and Q are defined as
+\begin{equation}
+p_{jl}=P(X=x_{j}, A=a_{l}|P)
+\end{equation}
+\begin{equation}
+q_{kl}=P(Y=y_{k}, A=a_{l}|Q)
+\end{equation}
+
+where $x_{j}$ is the score of the j:th item on test X, $y_{k}$ is the score of the k:th item of test Y and $a_{l}$ is the score of the l:th item of the anchor test A. There are two common methods for equating tests in a NEAT setting: chain equating (CE) and post-stratification equating (PSE). The pre-smoothing models for these two equating methods do not differ, so the following guide is valid for both CE and PSE.
+
+In the case of a NEAT design the same basic procedure as in an SG design applies but two bivariate log-linear models instead of one must be estimated (one for each of the two populations). The large sample sizes usually found when using a NEAT design allows for the specification of more complicated log-linear models than in other designs, and these models can thus cater more specifically to the particular features of the data that may arise when conducting test equating. The following complexities in the data are common in test data and can be modelled when sample sizes are large (von Davier, Holland and Thayer, 2004):
+\begin{itemize}
+\item[\textbf{a.)}]	"teeth" or "gaps" in the observed frequencies which occur at regular intervals because of scores being rounded to integer values
+\item[\textbf{b.)}] a "lump" at 0 in the marginal distributions caused by negative values being rounded to 0
+\end{itemize}
+Because of the fact that such features are common-place in test score data, they may need to be accounted for when conducting the pre-smoothing. The way that this is carried out is to specify additional variables in the log-linear model, indicating zero-values and gap-values. To check for these features in the data at hand, the marginal frequencies of X and A in population P and the marginal frequencies of Y and A in population Q should be plotted. If there are any spikes or lumps at zero or any particular score values in these marginal frequencies, the corresponding additional parameters should be included in the respective models. The way that this is done using \proglang{R} is to create new indicator variables for the particular score values that exhibit irregularities. 
+     As in the other designs, the data should be ordered by the score vectors for tests Y and X as conducted in the function \code{kefreq()}. In case the data is not aggregated using \code{kefreq()}, the data can be ordered by the following method. We assume that the data is in a data frame \code{PNEAT}, with vectors \code{frequency},  \code{X} and \code{A}. To order such a data frame by the \code{A}-vector and, in case of equal values of a, by the \code{X}-vector, we write:
+<<echo=TRUE>>=
+PNEATordered <- PNEAT[order(PNEAT$A, PNEAT$X),]
+@
+When the data is aggregated and sorted correctly, additional variables may need to be specified to model lumps and spikes in the observed data. Below we describe a procedure in \proglang{R} using data frames and the \code{[]} operator to specify these variables. We let \code{PNEAT} be a data frame with vectors \code{frequency}, \code{X} and \code{A}, as defined above, with the test X having score values \code{0:20} and the test A having score values \code{0:10}. Studying the marginal frequencies, we have discovered that there is a lump at score value zero for test X and a spike at score values 5, 10, 15 and 20 for test X. In light of this, we want to specify additional variables for each of these score values. For the zero score value and for score values 5, 10, 15 and 20, we want an indicator variable taking on value 1 if \code{X} is equal to the particular values and for score values 5, 10, 15 and 20 we additionally want to specify a variable which takes on value 5 if \code{X} is equal to 5 and so on for 10, 15 and 20. To create these variables we first define the new variables in the data frame:
+<<echo=TRUE>>=
+PNEAT$indx0 <- numeric(length(PNEAT$X))
+PNEAT$ind1x <- numeric(length(PNEAT$X))
+PNEAT$ind2x <- numeric(length(PNEAT$X))
+@
+
+This will create variables of equal length to the others in the data frame containing zero values. We then use the operator \code{[]} to specify that our new variables should take on particular values if the variable \code{x} in the data frame has the corresponding value:
+<<echo=TRUE>>=
+PNEAT$indx0[PNEAT$X==0] <- 1
+PNEAT$ind1x[PNEAT$X %in% c(5, 10, 15, 20)] <- 1
+PNEAT$ind2x[PNEAT$X==5] <- 5
+PNEAT$ind2x[PNEAT$X==10] <- 10
+PNEAT$ind2x[PNEAT$X==15] <- 15
+PNEAT$ind2x[PNEAT$X==20] <- 20
+@
+<<echo=FALSE>>=
+QNEAT$indy0 <- numeric(length(QNEAT$X))
+QNEAT$ind1y <- numeric(length(QNEAT$X))
+QNEAT$ind2y <- numeric(length(QNEAT$X))
+
+QNEAT$indy0[QNEAT$X==0] <- 1
+QNEAT$ind1y[QNEAT$X %in% c(5, 10, 15, 20)] <- 1
+QNEAT$ind2y[QNEAT$X==5] <- 5
+QNEAT$ind2y[QNEAT$X==10] <- 10
+QNEAT$ind2y[QNEAT$X==15] <- 15
+QNEAT$ind2y[QNEAT$X==20] <- 20
+@
+Similarly, additional variables can be created for any particular values of the \code{A} variable.
+     When we have suitable data we can begin the estimation of the log-linear model. First, univariate log-linear models are found using methods identical to the EG case, for each of the four univariate distributions. Having specified these models, the bivariate models for each population is specified in a manner similar to the SG case considering cross-moments up to the highest univariate moments in each univariate log-linear model. Additionally, possible indicator variables and moments of score values corresponding to the particular indicator variables need to be specified. In this example we include the first three moments of the test to be equated and the first two moments of the anchor test. An interaction term between the first moment for the test to be equated and the anchor test is included along with an interaction term between the first moment of the test to be equated and the second moment of the ancor test. Each indicator variable defined above is included. For the variable \code{ind2x} the first two moments are included. The function call to \code{glm()} is given below.
+<<echo=TRUE>>=
+PNEATglm <- glm(frequency~I(X) + I(X^2) + I(X^3) + I(A) + I(A^2) + 
+I(X):I(A) + I(X):I(A^2) + I(indx0) + I(ind1x) + I(ind2x) + I(ind2x^2), 
+data = PNEAT, family = "poisson", x = TRUE)
+@
+<<echo=FALSE>>=
+QNEATglm <- glm(frequency~I(X) + I(X^2) + I(X^3) + I(A) + I(A^2) + 
+I(X):I(A) + I(X):I(A^2) + I(indy0) + I(ind1y) + I(ind2y) + I(ind2y^2), 
+data = QNEAT, family = "poisson", x = TRUE)
+@
+
+\subsubsection{Non-equivalent groups with covariates design}
+     Instead of (or in addition to) using an anchor test to equate tests in a non-equivalent groups design, covariates of test takers can be used to conduct an equating. The same framework as in a NEAT PSE design is used in the NEC design, but inplace of an anchor test the method uses information from covariates to equate the tests. As in the other designs, the observed data needs to be modelled using log-linear models. In the NEC case the model specification is somewhat more complicated, and the data management can be more laborious. 
+     In \pkg{kequate} the function \code{kefreq()} cannot be used to tabulate frequency data since the covariates can be of any type and not just integers. The aggregation of the individual data in a NEC design is therefore not easily generalized into a single function. Instead, the data aggregation can be done manually in \proglang{R} using built-in functions. We illustrate how this can be done with a simple example. Consider a test X to be equated with a parallel test Y, which has integer score values from 0 to 40. In addition to the test results, there exists information on the individuals in the form of two covariates, one of which is the grade in mathematics (a quantitative variable with possible values 1, 2 and 3) and the other is a qualitative variable representing type of education (two values). In total, there are thus six different combinations of covariates that are possible. The desired frequency vector is then of size 41*6. At our disposal is a data frame (called \code{data11})  with observations from indivuduals for the test to be equated (variable \code{S11}) and the covariates considered (variables \code{edu} and \code{math}).  We want to aggregate and sort this data so that each entry in the created vector is a frequency corresponding to a particular combination of test score and covariate values where the data is sorted first by the grade in mathematics, then by the type of education and lastly by the test score received. To do so we use a combination of the functions \code{table()} and \code{as.data.frame()}:
+%\begin{verbatim}     
+%R> testfreq <- as.data.frame(table(factor(data11$S11, levels = 0:40, ordered
+%+    = TRUE), factor(data11$edu, levels = 1:3, ordered = TRUE), 
+%+   factor(data11$math, levels = 1:3, ordered = TRUE, dnn = c("S11", "edu", 
+%+   "math")))
+%\end{verbatim}
+<<echo=TRUE>>=
+testfreq <- as.data.frame(table(factor(data11$S11, levels = 0:40, ordered 
+= TRUE), factor(data11$edu, levels = 1:2, ordered = TRUE), 
+factor(data11$math, levels = 1:3, ordered = TRUE), dnn = c("S11", "edu", 
+"math")))
+@
+This will create a data frame with a single vector \code{Freq}, which contains 41*6 cells each containing a frequency corresponding to the possible score values and covariate combinations. The score and covariate vectors need now be specified. We do so by specifying a data frame, using the \code{rep()} function to create the vectors needed:
+%\begin{verbatim}
+%R> testdata <- data.frame(frequency = testfreq$Freq, xscore = rep(0:22, 9),
+%+   math = rep(1:3, each=23), edu = rep(1:3, each = 23*3))
+%\end{verbatim}
+<<echo=TRUE>>=
+testdata11 <- data.frame(frequency = testfreq$Freq, S11 = rep(0:40, 6),
+edu = rep(1:2, each=41*3), math = rep(1:3, each = 41*2))
+@
+This call creates a data frame with the correctly sorted vectors to be used in the bivariate \code{glm} model.
+     To estimate the log-linear model in the NEC case we proceed just as we would in a regular bivariate log-linear model specification. First, the univariate model for the test scores is estimated like in the EG case (\code{kefreq()} can be used to create the score frequency vector). A bivariate log-linear model is then specified using the moments from the univariate model while adding the variables corresponding to the covariates. Interactions between the  moments for the tests and the covariates need to be considered along with interactions between the covariates. In our example, \code{math} is a quantitative variable and higher moments of this variable can thus be needed and possible interactions between these and other variables may need to be considered. \code{edu} is a factor and thus needs to be specified as such in the \code{glm()} function call. 
+<<echo=TRUE>>=
+glm11 <- glm(frequency~I(S11) +  I(S11^2) + I(S11^3) + I(S11^4) + 
+I(math) + I(math^2) + factor(edu) + I(S11):I(math) + I(S11):factor(edu) + 
+I(math):factor(edu), data = data11, family = "poisson", x = TRUE)
+@
+<<echo=FALSE>>=
+glm12 <- glm(frequency~I(S12) +  I(S12^2) + I(S12^3) + I(S12^4) + I(math) + I(math^2) + factor(edu) + I(S12):I(math) + I(S12):factor(edu) + I(math):factor(edu), data = data12, family = "poisson", x = TRUE)
+@
+
+\subsection{Assessing model fit}
+\label{section33}
+     The equating design considered does not in itself affect the way the log-linear models are assessed for validity. There are however certain differences between assessing univariate and bivariate models. As mentioned previously, simply using the AIC to decide on the best model has been shown to be an effective way in the univariate case and this is the recommendation given here. To further ensure that the selected model is satisfactory, the residuals from the model can be analyzed. The Freeman-Tukey residuals are defined as 
+\begin{equation}
+FT_{i} = \sqrt{n_{i}}+ \sqrt{n_{i}+1}-\sqrt{4*\hat{m}_{i}+1},
+\end{equation}where $n_{i}$ is the i:th observed frequency and $\hat{m}_{i}$ is the i:th fitted frequency. If the observed frequencies are assumed to be Poisson distributed, then the Freeman-Tukey residuals are approximately standard normal distributed. \pkg{kequate} includes the function \code{FTres()} which calculates the Freeman-Tukey residuals from an estimated log-linear model. It takes as input either an object of class \code{glm} or two vectors where one contains the observed frequencies and where the other contains the estimated frequencies from the log-linear model. We write
+<<echo=TRUE>>=
+FTglm <- FTres(EGX$y, EGX$fitted.values)
+@
+Due to the high number of zero frequencies in an observed bivariate test data frequency distribution, an analysis of the Freeman-Tukey residuals is not very useful in the bivariate case.
+     With a bivariate log-linear model, it is instead worthwhile to see how well the estimated distribution approximates the observed distribution by investigating the conditional means, variances, skewnesses and kurtoses of the observed and estimated bivariate distributions. This is facilitated in \pkg{kequate} by the function \code{cdist()} which calculates these conditional moments for observed and estimated bivariate frequency distributions. The input given to \code{cdist()} should be two matrices containing the observed  and estimated frequencies, respectively, on a common population. If \code{Pest} is the estimated frequency matrix and \code{Pobs} is the observed frequency matrix, we can write
+<<echo=FALSE>>=
+Pest <- matrix(PNEATglm$fitted.values, nrow=21)
+Pobs <- matrix(PNEATglm$y, nrow=21)
+@
+<<echo=TRUE>>=
+NEATPcdist <- cdist(Pest, Pobs)
+@
+The object returned by \code{cdist()} is of class \code{cdist} and contains four data frames which store the conditional parameters of each distribution (for tests X and A, the output contains both the parameters for $X|A$ and for $A|X$ for both the observed and the estimated distributions). If the conditional parameters of the estimated distribution do not deviate too much from the conditional parameters of the observed distribution, then the estimated log-linear model is proper to use. 
+
+In selecting a bivariate log-linear model we recommend using a criterion such as the AIC or a likelihood ratio test to compare models to each other, and then to verify the suitability of the model by assessing the conditional parameters. If the conditional parameters are dissimilar between the observed and estimated distributions, additional parameters may need to be added to accurately model the observed data.
+
+\section[Kernel equating with kequate]{Kernel equating with \pkg{kequate}}
+\label{section4}
+The package \pkg{kequate} for \proglang{R} enables the equating of two parallell tests with the kernel method of equating for the EG, SG, CB, NEAT PSE, NEAT CE and NEC designs. \pkg{kequate} can use \code{glm} objects created using the \proglang{R} function \code{glm()} \citep[\pkg{stats}][]{rteam11} as input arguments and estimate the equating function and associated standard errors directly from the information contained therein. The \proglang{S4} system of classes and methods, a more formal and rigorous way of handling objects in \proglang{R} (for details see e.g. \cite{chambers2008}), is used in \pkg{kequate}, providing methods for the generic functions \code{plot()} and \code{summary()} for a number of newly defined classes. The main function of the package is \code{kequate()}, which enables the equating of two parallel tests using the previously defined equating designs. The function \code{kequate()} has the following formal function call: \code{kequate(design, \ldots)} where \code{design} is a character vector indicating the design used and \code{\ldots} should contain the additional arguments which depend partly on the design chosen. The possible data collection designs and the associated function calls are described below. Explanations of each argument that may be supplied to \code{kequate()} are collected in Table~\ref{table1}.
+%
+%\code{
+%EG: kequate("EG", x, r, s, DMP, DMQ, N, M, hx = 0, hy = 0, hxlin = 0,\\ hylin = 0, KPEN = 0, wpen = 1/4, linear = FALSE, irtx = 0, irty = 0, \\smoothed = TRUE)}
+%
+%\code{
+%SG: kequate("SG", x, P, DM, N, hx = 0, hy = 0, hxlin = 0, hylin = 0, \\KPEN = 0, wpen = 1/4, linear = FALSE, irtx = 0, irty = 0, smoothed = TRUE)}
+%
+%\code{
+%CB: kequate("CB", x, y, P12, P21, DM12, DM21, N, M, hx = 0, hy = 0, \\hxlin = 0, hylin = 0, wcb = 1/2, KPEN = 0, wpen = 1/4, linear = FALSE, \\irtx = 0, irty = 0, smoothed = TRUE)}
+%
+%\code{
+%NEAT CE: kequate("NEAT_CE", x, a, P, Q, DMP, DMQ, N, M, hxP = 0, hyQ = 0, \\haP = 0, haQ = 0, hxPlin = 0, hyQlin = 0, haPlin = 0, haQlin = 0, KPEN = 0, \\wpen = 1/4, linear = FALSE, irtx = 0, irty = 0, smoothed = TRUE)}
+%
+%\code{
+%NEAT PSE: kequate("NEAT_PSE", x, P, Q, DMP, DMQ, N, M, w = 0.5, hx = 0, \\hy = 0, hxlin = 0, hylin = 0, KPEN = 0, wpen = 1/4, linear = FALSE, \\irtx = 0, irty = 0, smoothed = TRUE) }
+%
+%\code{
+%NEC: kequate("NEC", x, P, Q, DMP, DMQ, N, M, hx = 0, hy = 0, hxlin = 0, \\hylin = 0, KPEN = 0, wpen = 1/4, linear = FALSE, irtx = 0, irty = 0, \\smoothed = TRUE)}
+
+\code{
+EG: kequate("EG", x, y, r, s, DMP, DMQ, N, M, hx = 0, hy = 0, hxlin = 0,\\ hylin = 0, KPEN = 0, wpen = 1/4, linear = FALSE, irtx = 0, irty = 0, \\smoothed = TRUE, kernel= "gaussian", slog = 1, bunif = 0.5, altopt = FALSE)}\\
+\\
+\code{
+SG: kequate("SG", x, y, P, DM, N, hx = 0, hy = 0, hxlin = 0, hylin = 0, \\KPEN = 0, wpen = 1/4, linear = FALSE, irtx = 0, irty = 0, smoothed = TRUE, \\kernel = "gaussian", slog = 1, bunif = 0.5, altopt = FALSE)}\\
+\\
+\code{
+CB: kequate("CB", x, y, P12, P21, DM12, DM21, N, M, hx = 0, hy = 0, \\hxlin = 0, hylin = 0, wcb = 1/2, KPEN = 0, wpen = 1/4, linear = FALSE, \\irtx = 0, irty = 0, smoothed = TRUE, kernel = "gaussian", slog = 1, \\bunif = 0.5, altopt = FALSE)}\\
+\\
+\code{
+NEAT CE: kequate("NEAT_CE", x, y, a, P, Q, DMP, DMQ, N, M, hxP = 0, hyQ = 0, \\haP = 0, haQ = 0, hxPlin = 0, hyQlin = 0, haPlin = 0, haQlin = 0, KPEN = 0, \\wpen = 1/4, linear = FALSE, irtx = 0, irty = 0, smoothed = TRUE, \\kernel = "gaussian", slog = 1, bunif = 0.5, altopt = FALSE)}\\
+\\
+\code{
+NEAT PSE: kequate("NEAT_PSE", x, y, P, Q, DMP, DMQ, N, M, w = 0.5, hx = 0, \\hy = 0, hxlin = 0, hylin = 0, KPEN = 0, wpen = 1/4, linear = FALSE, \\irtx = 0, irty = 0, smoothed = TRUE, kernel = "gaussian", slog = 1, \\bunif = 0.5, altopt = FALSE) }\\
+\\
+\code{
+NEC: kequate("NEC", x, y, P, Q, DMP, DMQ, N, M, hx = 0, hy = 0, hxlin = 0, \\hylin = 0, KPEN = 0, wpen = 1/4, linear = FALSE, irtx = 0, irty = 0, \\smoothed = TRUE, kernel = "gaussian", slog = 1, bunif = 0.5, altopt = FALSE)}\\
+%\begin{table}[!hbp]\footnotesize
+%\begin{tabular}{|p{2.35cm}|p{2cm}|p{9cm}|}
+%\hline
+%\textbf{Argument(s)} & \textbf{Designs} & \textbf{Description}\\
+%\hline
+%\code{x} & ALL & Score value vector for test X.\\
+%\hline
+%\code{a} & CE & Score value vector for the anchor test A.\\
+%\hline
+%\code{y} & CB & Score value vector for test Y.\\
+%\hline
+%\code{r, s} & EG & Score probability vectors for tests X and Y. Alternatively objects of class \code{glm}.\\
+%\hline
+%\code{P} & SG, CE, PSE, NEC & Matrix of bivariate score probabilities for tests X and Y (SG), tests X and A (CE, PSE) or test X and covariates (NEC) on population P. Alternatively an object of class \code{glm}.\\
+%\hline
+%\code{Q} & CE, PSE, NEC & Matrix of bivariate score probabilities for tests Y and A (CE, PSE) or test Y and covariates (NEC) on population Q. Alternatively an object of class \code{glm}.\\
+%\hline
+%\code{P12, P21} & CB & Matrices of bivariate score probabilities for tests X and Y. Alternatively objects of class \code{glm}.\\
+%\hline
+%\code{DMP, DMQ} & CE, PSE, NEC & Design matrices for the specified bivariate log-linear models on populations P and Q, respectively (or groups taking test X and Y, respectively, in an EG design). Not needed if \code{P} and \code{Q} are of class \code{glm}.\\
+%\hline
+%\code{DM} & SG & Design matrix for the specified bivariate log-linear model. Not needed if \code{P} is of class \code{glm}.\\
+%\hline
+%\code{DM12, DM21} & CB & Design matrices for the specified bivariate log-linear models. Not needed if \code{P12} and \code{P21} is of class \code{glm}.\\
+%\hline
+%\code{N} & ALL & The sample size for population P (or the group taking test X in the EG design). Not needed if \code{r}, \code{P} or \code{P12} is of class \code{glm}.\\
+%\hline
+%\code{M} & EG, CB, CE, PSE, NEC & The sample size for population Q (or the group taking test Y in the EG design). Not needed if \code{s}, \code{Q} or \code{P21} is of class \code{glm}.\\
+%\hline
+%\code{hx, hy, hxlin, hylin} & EG, SG, CB, PSE, NEC & Optional arguments to specify the continuization parameters manually.\\
+%\hline
+%\code{hxP, hyQ, haP, haQ, hxPlin, hyQlin, haPlin, haQlin} & CE & Optional arguments to specify the continuization parameters manually.\\
+%\hline
+%\code{wcb} & CB & The weighting of the two test groups in a counterbalanced design. Default is 1/2.\\
+%\hline
+%\code{KPEN} & ALL & Optional argument to specify the constant used in deciding the optimal continuization parameter. Default is 0.\\
+%\hline
+%\code{wpen} & ALL & An argument denoting at which point the derivatives in the second part of the penalty function should be evaluated. Default is 1/4.\\
+%\hline
+%\code{linear} & ALL & Logical denoting if a linear equating only is to be performed.  Default is FALSE.\\
+%\hline
+%\code{irtx, irty} & ALL & Optional arguments to provide matrices of probabilities to answer correctly to the questions on the parallel tests X and Y, as estimated in an IRT model.\\
+%\hline
+%\code{smoothed} & ALL & A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.\\
+%\hline
+%\end{tabular}
+%\caption{Arguments supplied to \code{kequate()}.}
+%\label{table1}
+%\end{table}
+\begin{table}[!hbp]\footnotesize
+\begin{center}
+\begin{tabular}{|p{3.45cm}|p{2.11cm}|p{8.57cm}|}
+\hline
+\textbf{Argument(s)} & \textbf{Designs} & \textbf{Description} \\ \hline
+\code{x}, \code{y} & ALL & Score value vectors for test X and test Y. \\ \hline
+\code{a} & CE & Score value vector for the anchor test A. \\ \hline
+\code{r}, \code{s} & EG & Score probability vectors for tests X and Y. Alternatively objects of class \code{glm}. \\ \hline
+\code{P} & SG, CE, PSE, NEC & Matrix of bivariate score probabilities for tests X and Y (SG), tests X and A (CE, PSE), or test X and covariates (NEC) on population P. Alternatively an object of class \code{glm}. \\ \hline
+\code{Q} & CE, PSE, NEC & Matrix of bivariate score probabilities for tests Y and A (CE, PSE) or test Y and covariates (NEC) on population Q. Alternatively an object of class \code{glm}. \\  \hline
+\code{P12}, \code{P21} & CB & Matrices of bivariate score probabilities for tests X and Y. Alternatively objects of class \code{glm}. \\ \hline
+\code{DMP, DMQ} & CE, PSE, NEC & Design matrices for the specified bivariate log-linear models on populations P and Q, respectively (or groups taking test X and Y, respectively, in an EG design). Not needed if \code{P} and \code{Q} are of class \code{glm}. \\ \hline
+\code{DM} & SG & Design matrix for the specified bivariate log-linear model. Not needed if \code{P} is of class \code{glm}. \\ \hline
+\code{DM12}, \code{DM21} & CB & Design matrices for the specified bivariate log-linear models. Not needed if \code{P12} and \code{P21} is of class \code{glm}. \\ \hline
+\code{N} & ALL & The sample size for population P (or the group taking test X in the EG design). Not needed if \code{r}, \code{P}, or \code{P12} is of class \code{glm}. \\ \hline
+\code{M} & EG, CB, CE, PSE, NEC & The sample size for population Q (or the group taking test Y in the EG design). Not needed if \code{s}, \code{Q}, or \code{P21} is of class \code{glm}. \\  \hline
+\code{w} & PSE & Optional argument to specify the weight given to population P. Default is 0.5. \\ \hline
+\code{hx}, \code{hy}, \code{hxlin}, \code{hylin} & EG, SG, CB, PSE, NEC & Optional arguments to specify the continuization parameters manually. \\ \hline
+\code{hxP}, \code{hyQ}, \code{haP}, \code{haQ}, \code{hxPlin}, \code{hyQlin}, \code{haPlin}, \code{haQlin} & CE & Optional arguments to specify the continuization parameters manually. \\ \hline
+\code{wcb} & CB & The weighting of the two test groups in a counterbalanced design. Default is 1/2. \\ \hline
+\code{KPEN} & ALL & Optional argument to specify the constant used in deciding the optimal continuization parameter. Default is 0. \\ \hline
+\code{wpen} & ALL & An argument denoting at which point the derivatives in the second part of the penalty function should be evaluated. Default is 1/4. \\ \hline
+\code{linear} & ALL & Logical denoting if a linear equating only is to be performed.  Default is FALSE. \\ \hline
+\code{irtx, irty} & ALL & Optional arguments to provide matrices of probabilities to answer correctly to the questions on the parallel tests X and Y, as estimated in an IRT model. \\ \hline
+\code{smoothed} & ALL & A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE. \\ \hline
+\code{kernel} & ALL & A character vector denoting which kernel to use, with options "gaussian", "logistic", "stdgaussian" and "uniform". Default is "gaussian". \\ \hline
+\code{slog} & ALL & The parameter used in the logistic kernel. Default is 1. \\ \hline
+\code{bunif} & ALL & The parameter used in the uniform kernel. Default is 0.5. \\ \hline
+\code{altopt} & ALL & Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE. \\ \hline
+\end{tabular}
+\caption{Arguments supplied to \code{kequate()}.}
+\label{table1}
+\end{center}
+\end{table}
+
+The arguments containing the score probabilities and design matrices that are supplied to \pkg{kequate} can either be objects of class \code{glm} or design matrices and estimated probability vectors\slash matrices. For ease of use, it is recommended to estimate the log-linear models using the \proglang{R} function \code{glm()} and utilize the objects created by \code{glm()} as input to \code{kequate()}. For help in estimating  log-linear models, see Section~\ref{section3}. Optional arguments to specify the continuization parameters directly are also available for all equating designs. In addition, there exists the option to only conduct a linear equating and an option to use unsmoothed input proportions. By default a Gaussian kernel is used but the option to use either a logistic or uniform kernel is provided. In the NEAT PSE case, the weighting of the synthetic populations can be specified. For all designs, if using pre-smoothed input data, the equated values and the SEE are calculated. Using unsmoothed data, SEE is calculated only in the EG case. The SEED between the linear equating function and the kernel equipercentile equating function is also calculated. For each design there is also the option to use data from an IRT model to conduct an IRT observed-score equating using the kernel equating framework. This is accomplished by supplying matrices of probabilities to answer each question correctly for each ability level on two parallell tests X and Y, as estimated beforehand using an IRT model.
+
+The package \pkg{kequate} creates an object of class \code{keout} which includes information about the equating. To access information from an object of class \code{keout}, a number of get-functions are available. They are described in Table~\ref{table2}. Methods for the class \code{keout} are implemented for the functions \code{plot()} and \code{summary()}.
+\begin{table}[!hbp]
+\begin{center}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Function} & \textbf{Output}\\
+\hline
+\code{getEquating()} & A data frame with the equated values, SEEs and other information\\& about the equating.\\
+\hline
+\code{getPre()} & A data frame with the PRE for the equated distribution.\\
+\hline
+\code{getType()} & A character vector describing the type of equating conducted.\\
+\hline
+\code{getScores()} & A vector containing the score values for the equated tests.\\
+\hline
+\code{getH()} & A data frame containing the values of h used in the equating.\\
+\hline
+\code{getEq()} & A vector containing the equated values.\\
+\hline
+\code{getEqlin()} & A vector containing the equated values of the linear equating.\\
+\hline
+\code{getSeelin()} & A vector containing the SEEs for the equated values of the linear\\& equating.\\
+\hline
+\code{getSeed()} & An object of class genseed containing the SEED between the\\& KE-equipercentile equating and the linear equating (if applicable).\\
+\hline
+\end{tabular}
+\caption{Functions to retrieve information from the resulting \code{keout} objects.}
+\label{table2}
+\end{center}
+\end{table}
+Additionally, the function \code{genseed()} can be used to compare any two equatings that utilize the same log-linear models. It takes as input two objects created by \pkg{kequate} and calculates the SEED between them. A useful comparison is for example between a chain equating and a post-stratification equating in the NEAT design. A method for the function \code{plot()} is implemented for the objects created by \code{genseed()}. The package also includes a function \code{kefreq()} to tabulate frequency data from individual test score data and functions \code{FTres()} and \code{cdist()} to be used when specifying the log-linear pre-smoothing models. \code{FTres()} calculates the Freeman-Tukey residuals given a specified log-linear model and \code{cdist()} calculates the conditional means, variances, skewnesses and kurtoses of the tests to be equated given an anchor test, for both the fitted distributions and the observed distributions. For details on how to use the functions \code{kefreq()}, \code{FTres()} and \code{cdist()}, see Section~\ref{section3}.
+\section{Examples}
+\label{section5}
+We exemplify the main function \code{kequate()} by equating using each of the designs available in \pkg{kequate}. We demonstrate how to use different types of input arguments and how each optional argument can be used. Additionally, we show how to utilize functions that are common to all designs.
+
+\subsection{Equivalent groups design}
+Now, let the parallel tests X and Y have common score vectors <0, 1, 2, \ldots, 19, 20>. The tests are each administered to a randomized group drawn from the same population, thus we have an EG design. We assume that the log-linear models have been specified using the \code{glm()} function in \proglang{R} and that two objects \code{EGX} and \code{EGY} have been created. To equate the two tests using an equipercentile equating with pre-smoothing, we call the function \code{kequate()} as follows:
+<<echo=TRUE>>=
+keEG <- kequate("EG", 0:20, 0:20, EGX, EGY)
+@
+This will create an \proglang{R} object \code{keEG} of class \code{keout} containing information about the equating, retrieved by using the functions described in Table~\ref{table1}.
+With the EG design, it is also possible to equate two tests using the full kernel equating framework with observed data instead of pre-smoothed data. The additional argument \code{smoothed = FALSE} needs to be given to \code{kequate()} in such a case. As an example, with observed frequency vectors \code{EGX} and \code{EGY}, we can write:
+<<echo=TRUE>>=
+keEGobs <- kequate("EG", 0:20, 0:20, EGX$y/1453, EGY$y/1455, N = 1453, 
+M = 1455, smoothed = FALSE)
+@
+The object created is of class \code{keout} and contains similar information to an object from an equating with pre-smoothed data. To print useful information about the equating, we can utilize the \code{summary()} function. Using the EG example above, we write:
+<<echo=TRUE>>=
+summary(keEG)
+@
+The \code{summary()} function can be used in \pkg{kequate} to print information from any object of class \code{keout}. The output is similar for all designs. The first part contains information about the score range and bandwidths. The second part contains the equating function with its standard error. Finally, the percent relative error (PRE) is given.
+
+\subsection{Single group design}
+Besides equating, \pkg{kequate} allows for the linking of two tests of abitrary lengths. Let X and A be two tests to be linked, with test X having 20 items and test A having 10 items. In a single group design, we let a random group of individuals from a population take both test X and test A. For this design we then have combinations of scores for the two tests for each individual, which we tally to get the frequency for each combination of scores. Usually we specify a log-linear model for the observed frequencies. In the following, let \code{SGglm} be a \code{glm} object containing a suitable bivariate log-linear model specification. To link tests X and A we write
+<<echo=TRUE>>=
+keSG <- kequate("SG", 0:20, 0:10, SGglm)
+@
+
+We retrieve a summary of this linking by writing
+<<echo=TRUE>>=
+summary(keSG)
+@
+
+Now, let's say we have done the pre-smoothing using another function in \proglang{R} or using an external software package and want to supply \code{kequate()} with the relevant information from this model. The expected class of the argument \code{P} is then a matrix of estimated bivariate probabilities from the log-linear model. Additionally we need to specify the arguments \code{DM} and \code{N} in the \code{kequate()} function call. The object \code{DM} is the design matrix from the log-linear model, which should be an object of class \code{matrix} containing values of the explanatory variables for each score value combination provided in the log-linear model specification while the object \code{N} is the sample size. To provide the same log-linear model as in the above function call, but using these additional arguments instead of a \code{glm} object, we define the matrix \code{DMSG}, of size $241*7$, as an object of class \code{matrix} containing cells as in the matrix given in Table~\ref{tabmat} below. We then link the two tests by writing
+<<echo=FALSE>>=
+DMSG <- SGglm$x[,-1]
+PSG <- matrix(SGglm$fitted.values/sum(SGglm$fitted.values), nrow=21)
+@
+<<echo=TRUE>>=
+keSGDM <- kequate("SG", 0:20, 0:10, P = PSG, DM = DMSG, N = 1000)
+@
+The same linking is then conducted, since the log-linear models are identical between the two different function calls.
+\begin{table}
+\begin{center}
+$\begin{bmatrix}
+0& 0 & 0 & 0 & 0 & 0 & 0\\
+1& 1 & 0 & 0 & 0 & 0 & 0\\
+\vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots\\
+19 & 361 & 0 & 0 & 0 & 0 & 0\\
+20 & 400 & 0 & 0 & 0 & 0 & 0\\
+0 & 0 & 1 & 1 & 1 & 0 & 0\\
+1 & 1 & 1 & 1 & 1 & 1 & 1\\
+2 & 4 & 1 & 1 & 1 & 2 & 4\\
+\vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots\\
+20 & 400 & 1 & 1 & 1 & 20 & 400\\
+0 & 0 & 2 & 4 & 8 & 0 & 0\\
+1 & 1 & 2 & 4 & 8 & 2 & 4\\
+\vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots\\
+20 & 400 & 2 & 4 & 8 & 40 & 1600\\
+\vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots\\
+0 & 0 & 10 & 100 & 1000 & 0 & 0\\
+1 & 1 & 10 & 100 & 1000 & 10 & 100\\
+\vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots\\
+20 & 400 & 10 & 100 & 1000 & 200 & 40000
+\end{bmatrix}$
+\caption{The design matrix from the SG log-linear model specification.}
+\label{tabmat}
+\end{center}
+\end{table}
+
+
+\subsection{Counterbalanced design}
+The counterbalanced design features two separate groups taking two tests, X and Y, to be equated. One of the groups takes test X first and then test Y, while the other group first takes test Y and then takes test X. In principle, the counterbalanced design can be viewed as two single group designs utilized in conjunction. For each group, a separate bivariate log-linear model is specified just like in the SG case. The two log-linear models are then provided to \code{kequate()} and tests X and Y are equated. We assume that the log-linear models have been specified and that two objects, \code{CBglm12} and \code{CBglm21} have been created using the \proglang{R} function \code{glm()}. In a CB design we then write
+<<echo=TRUE>>=
+keCB <- kequate("CB", 0:40, 0:40, glmCB12, glmCB21)
+@
+Unique to the CB design is the argument \code{wcb}, which specifies the weighting of the two groups taking the test. The default is \code{wcb = 1/2}, meaning that the two groups are given the same weight.
+
+\subsection{Non-equivalent groups design}
+\subsubsection*{Chain equating}
+In a NEAT design, let the parallel tests X and Y have common score vectors <0, 1, 2, \ldots, 19, 20> and let the anchor test A have the score vector <0, 1, 2, \ldots, 9, 10>. Using chain equating, we can equate these two tests without assuming that the group taking test X and the group taking test Y come from the same population. In chain equating, this is accomplished by first linking test X to the anchor test A, and then linking the anchor test A to the test Y. We assume that the log-linear model is estimated using a method similar to that in Section~\ref{section32}, and that \code{PNEATglm} and \code{QNEATglm} are the resulting \code{glm} objects. We equate the two tests by writing
+<<echo=TRUE>>=
+keNEATCE <- kequate("NEAT_CE", 0:20, 0:20, 0:10, PNEATglm, QNEATglm)
+@
+This creates a \code{glm} object \code{keNEATCE} which can be used as input to the generic functions \code{plot()} and \code{summary()}, among others. Thus, we plot the the equating function and the  standard error of equating by writing
+<<label=neatceplot, echo=TRUE, include=FALSE, height=7, width=9>>=
+plot(keNEATCE)
+@
+\begin{figure}[!htpb]
+\begin{center}
+<<label=neatceplot1, fig=TRUE, echo=FALSE>>=
+<<neatceplot>>
+@
+\end{center}
+\caption{The equated values and corresponding SEE for each score value in a NEAT CE design.}
+\label{cefig}
+\end{figure}
+The resulting plot can be seen in Figure~\ref{cefig}.
+
+\subsubsection*{Post-stratification equating}
+We again want to equate two tests X and Y with common score vectors <0, 1, 2, \ldots, 19, 20>. By using an anchor test we can equate these tests without assuming that the populations taking each test are perfectly identical. The log-linear model estimation procedure for CE and NEAT do not differ, so we again suppose that \code{FPNEATglm} and \code{FQNEATglm} are appropriate \code{glm} objects containing bivariate log-linear models over P and Q respectively. We can then equate the tests X and Y in a NEAT PSE design by writing:
+<<echo=TRUE>>=
+keNEATPSE <- kequate("NEAT_PSE", 0:20, 0:20, PNEATglm, QNEATglm)
+@
+This will create an object of class \code{keout} containing information about the equating. No matter the design used, the objects are still of the same class with certain slots filled in while others are not depending on the design.
+
+Like for all objects of class \code{keout}, we can plot the object \code{FNEATPSE} by writing:
+<<label=neatpseplot, include=FALSE, height=7, width=9>>=
+plot(keNEATPSE)
+@
+The resulting graph is shown in Figure~\ref{figure1}, where the first plot compares the score values on X with the equated values and where the second plot gives the standard error of the equated values for each score value of X. The same type of graph is plotted for all equating designs.
+
+\begin{figure}[!htpb]
+\begin{center}
+<<label=neatpseplot1, fig=TRUE, echo=FALSE>>=
+<<neatpseplot>>
+@
+\end{center}
+\caption{The equated values and corresponding SEE for each score value in a NEAT PSE design.}
+\label{figure1}
+\end{figure}
+%\begin{figure}
+%\includegraphics[scale=0.5]{Figure1.png}
+%\caption{The equated values and corresponding SEE for each score value in a NEAT PSE design.}
+%\label{figure1}
+%\end{figure}
+%It is also possible to use vectors and matrices as arguments instead of \code{glm} objects. 
+
+In the above function calls, the default settings have been used. Under the default settings, both a KE-equipercentile equating and a linear equating is done. The continuization parameters will by default be set to the optimal value in the KE-equipercentile case and to 1000*std error for the test scores in the linear case. It is possible to choose these parameters manually by specifying additional arguments in the function call. With a NEAT PSE design there are four continuization parameters to consider: \code{hx}, \code{hy}, \code{hxlin} and \code{hylin}. As an example, we can write:
+<<echo=TRUE>>=
+keNEATPSEnew <- kequate("NEAT_PSE", 0:20, 0:20, PNEATglm, QNEATglm, hx = 
+0.5, hy = 0.5, hxlin = 1000, hylin = 1000)
+@
+\subsubsection*{Equating using covariates}
+In the NEC design, instead of using an anchor test to enable the equating of two tests when the groups taking the test are not equivalent, we utilize background information on the individuals taking the tests. We conduct the equating based on the log-linear model specification given for the non-equivalent groups with covariates design in Section~\ref{section32}. The \code{glm}-objects \code{NECPglm} and \code{NECQglm} for each test have been specified and we equate the two versions of the test by writing
+<<echo=TRUE>>=
+NECtest2012 <- kequate("NEC", 0:40, 0:40, glm12, glm11)
+@
+The output is given below, showing that test X is slightly more difficult when we have conditioned on relevant background variables. The estimated standard errors are small for the score values with high sample sizes but for very low and very high score values the standard errors are higher.
+<<echo=TRUE>>=
+summary(NECtest2012)
+@
+<<label=necplot1, include=FALSE, height=7, width=9>>=
+plot(NECtest2012)
+@
+The resulting plot is seen in Figure~\ref{necfig}.
+\begin{figure}[!htpb]
+\begin{center}
+<<label=necplot,fig=TRUE, echo=FALSE>>=
+<<necplot1>>
+@
+\end{center}
+\caption{Equated values and SEE in the case of equating with covariates.}
+\label{necfig}
+\end{figure}
+\pkg{kequate} enables the usage of logistic and uniform kernels in addition to the default gaussian kernel. To utilize a different kernel the argument \code{kernel} is specified in the \code{kequate()} function call. Below, the previously defined log-linear models are used to equate the two tests in the NEC design using a logistic and a uniform kernel.
+<<echo=TRUE>>=
+NECtestL <- kequate("NEC", 0:40, 0:40, glm12, glm11, kernel = "logistic")
+NECtestU <- kequate("NEC", 0:40, 0:40, glm12, glm11, kernel = "uniform")
+@
+In this case the equating function is almost identical between the three kernels but there are some differences in the standard error of equating for low and high score values, which can be seen in Figure~\ref{kernelcomp}.
+<<echo=FALSE, label=neccomp, include=FALSE, height=7, width=9>>=
+plot(0:40, getSee(NECtest2012), ylim=c(0, 0.8), pch=1, xlab="", ylab="")
+par(new=TRUE)
+plot(0:40, getSee(NECtestL), ylim=c(0, 0.8), pch=2, xlab="", ylab="")
+par(new=TRUE)
+plot(0:40, getSee(NECtestU), ylim=c(0, 0.8), pch=3, xlab="Score value", ylab="SEE")
+legend("topright", inset=.1, title="Kernel utilized", c("Gaussian", "Logistic", "Uniform"), pch=c(1, 2, 3))
+@
+\begin{figure}[!htpb]
+\begin{center}
+<<label=neckernelcomp,fig=TRUE, echo=FALSE, height=7, width=9>>=
+<<neccomp>>
+@
+\end{center}
+\caption{SEE for three different kernels in the case of equating with covariates.}
+\label{kernelcomp}
+\end{figure}
+
+\subsection{Additional features}
+\pkg{kequate} also enables IRT observed-score equating (IRT-OSE) using the arguments \code{irtx} and \code{irty}. We let \code{irtmatx} and \code{irtmaty} be matrices where each column represents an ability level in an IRT model and each row represents a question on the test to be equated. Each cell in the matrix should then contain the estimated probability to answer correctly to a question on the parallel tests for a certain ability level. To equate using IRT-OSE, we write:
+<<echo=TRUE>>=
+keEGirt <- kequate("EG", 0:20, 0:20, EGX, EGY, irtx = simeq$irt2, irty = 
+simeq$irt1)
+@
+This will instruct \code{kequate()} to conduct an IRT-OSE in the kernel equating framework in addition to a regular equipercentile equating. It is possible to use unsmoothed frequencies while conducting an IRT-OSE. Specifying \code{linear = TRUE} will instruct \code{kequate()} to do a linear equating for both the regular method and for the IRT-OSE. Using IRT-OSE is not limited to an EG design. It can be used as a supplement in any of the designs available in \pkg{kequate}.
+
+For all designs it is also possible to specify the constants \code{KPEN} and \code{wpen} used in finding the optimal continuization parameters. Defaults are \code{KPEN = 0} and \code{wpen = 1/4}. Additionally, the logical argument \code{linear} can be used to specify that a linear equating only is to be performed, where default is \code{linear = FALSE}. Given two different equating functions derived from the same log-linear models, the SEED between two equatings can be calculated. In \pkg{kequate}, the function \code{genseed()} takes as input two objects of class \code{keout} and calculates the SEED between two kernel equipercentile or linear equatings. By default the kernel equipercentile equatings are used. To instead compare two linear equatings to each other, the logical argument \code{linear = TRUE} should be used when calling \code{genseed()}. The output from \code{genseed()} is an object of class \code{genseed} which can be plotted using \code{plot()}, creating a suitable plot of the difference between the equating functions and the associated SEED. To compare a NEAT PSE equating to a NEAT CE design and to plot the resulting object, we write:
+<<label=seedplot, echo=TRUE, include=FALSE, height=7, width=9>>=
+SEEDPSECE <- genseed(keNEATPSE, keNEATCE)
+plot(SEEDPSECE)
+@
+The resulting plot is seen in Figure~\ref{figure2}.
+\begin{figure}[!htpb]
+\begin{center}
+<<label=seedplot1, fig=TRUE, echo=FALSE, width=9, height=7>>=
+<<seedplot>>
+@
+\end{center}
+\caption{The difference between PSE and CE in a NEAT design for each score value with the associated SEED.}
+\label{figure2}
+\end{figure}
+Given an object of class \code{keout} created by \code{kequate()} using the function call \code{linear = FALSE} (default), the SEED between the KE-equipercentile and the linear equating functions can be retrieved by using the \code{getSeed()} function. The function \code{getSeed()} returns an object of class \code{genseed} which can be plotted using the generic function \code{plot()}, resulting in a graph similar to the one in Figure~\ref{figure2}.
+%% include your article here, just as usual
+%% Note that you should use the \pkg{}, \proglang{} and \code{} commands.
+%% Note: If there is markup in \(sub)section, then it has to be escape as above.
+\bibliography{kequate}
+\end{document}

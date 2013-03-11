@@ -52,11 +52,13 @@ Besides the above argument, additional arguments must be provided for the differ
 
 \sQuote{smoothed}    A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.
 
-\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic" or "uniform". Default is "gaussian".
+\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic", "stdgaussian" or "uniform". Default is "gaussian".
 
 \sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
 
 \sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
+
+\sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
 }
 
 \subsection{SG design}{\cr
@@ -84,7 +86,7 @@ Besides the above argument, additional arguments must be provided for the differ
 
 \sQuote{smoothed}    A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.
 
-\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic" or "uniform". Default is "gaussian".
+\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic", "stdgaussian" or "uniform". Default is "gaussian".
 
 \sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
 
@@ -118,11 +120,13 @@ Besides the above argument, additional arguments must be provided for the differ
 
 \sQuote{smoothed}    A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.
 
-\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic" or "uniform". Default is "gaussian".
+\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic", "stdgaussian" or "uniform". Default is "gaussian".
 
 \sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
 
 \sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
+
+\sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
 }
 
 \subsection{NEAT PSE or NEC design}{\cr
@@ -152,11 +156,13 @@ Besides the above argument, additional arguments must be provided for the differ
 
 \sQuote{smoothed}    A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.
 
-\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic" or "uniform". Default is "gaussian".
+\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic", "stdgaussian" or "uniform". Default is "gaussian".
 
 \sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
 
 \sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
+
+\sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
 }
 
 \subsection{NEAT CE design}{\cr
@@ -186,11 +192,13 @@ Besides the above argument, additional arguments must be provided for the differ
 
 \sQuote{smoothed}    A logical argument denoting if the data provided are pre-smoothed or not. Default is TRUE.
 
-\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic" or "uniform". Default is "gaussian".
+\sQuote{kernel}    A character vector indicating which kernel to use, either "gaussian", "logistic", "stdgaussian" or "uniform". Default is "gaussian".
 
 \sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
 
 \sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
+
+\sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
 }
 }
 \value{
@@ -246,4 +254,8 @@ keNEATPSE <- kequate("NEAT_PSE", 0:20, 0:20, glm1, glm2)
 keNEATCE <- kequate("NEAT_CE", 0:20, 0:20, 0:10, glm1, glm2)
 summary(keNEATPSE)
 summary(keNEATCE)
+
+#IRT observed-score equating
+keNEATCEirt <- kequate("NEAT_CE", 0:20, 0:20, 0:10, glm1, glm2, irtx=simeq$irtNEATx, irty=simeq$irtNEATy)
+getEquating(keNEATCEirt)
 }

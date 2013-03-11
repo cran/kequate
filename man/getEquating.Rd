@@ -15,7 +15,7 @@ An object of class keout as created by the function kequate.
 }
 }
 \value{
-A data frame with the equated values and standard errors of equating.
+A data frame with the equated values, standard errors of equating, cumulative distribution functions for the equated tests, estimated score probabilities for the equated tests and other information about the equating.
 }
 
 \author{
