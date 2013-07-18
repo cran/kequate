@@ -248,14 +248,17 @@ plot(keEG)
 data(simeq)
 freq1 <- kefreq(simeq$bivar1$X, 0:20, simeq$bivar1$A, 0:10)
 freq2 <- kefreq(simeq$bivar2$Y, 0:20, simeq$bivar2$A, 0:10)
-glm1<-glm(frequency~I(X)+I(X^2)+I(X^3)+I(X^4)+I(X^5)+I(A)+I(A^2)+I(A^3)+I(A^4)+I(A):I(X)+I(A):I(X^2)+I(A^2):I(X)+I(A^2):I(X^2), family="poisson", data=freq1, x=TRUE)
-glm2<-glm(frequency~I(X)+I(X^2)+I(A)+I(A^2)+I(A^3)+I(A^4)+I(A):I(X)+I(A):I(X^2)+I(A^2):I(X)+I(A^2):I(X^2), family="poisson", data=freq2, x=TRUE)
+glm1<-glm(frequency~I(X)+I(X^2)+I(X^3)+I(X^4)+I(X^5)+I(A)+I(A^2)+I(A^3)+I(A^4)+
+I(A):I(X)+I(A):I(X^2)+I(A^2):I(X)+I(A^2):I(X^2), family="poisson", data=freq1, x=TRUE)
+glm2<-glm(frequency~I(X)+I(X^2)+I(A)+I(A^2)+I(A^3)+I(A^4)+I(A):I(X)+I(A):I(X^2)+
+I(A^2):I(X)+I(A^2):I(X^2), family="poisson", data=freq2, x=TRUE)
 keNEATPSE <- kequate("NEAT_PSE", 0:20, 0:20, glm1, glm2)
 keNEATCE <- kequate("NEAT_CE", 0:20, 0:20, 0:10, glm1, glm2)
 summary(keNEATPSE)
 summary(keNEATCE)
 
 #IRT observed-score equating
-keNEATCEirt <- kequate("NEAT_CE", 0:20, 0:20, 0:10, glm1, glm2, irtx=simeq$irtNEATx, irty=simeq$irtNEATy)
+keNEATCEirt <- kequate("NEAT_CE", 0:20, 0:20, 0:10, glm1, glm2, irtx=simeq$irtNEATx, 
+irty=simeq$irtNEATy)
 getEquating(keNEATCEirt)
 }

@@ -16,6 +16,7 @@ Objects can be created by calls of the form \code{new("keout", ...)}.
     \item{\code{Cs}:}{Object of class \code{"matrix"}. The C-matrix from the log-linear model of test Y on population Q. (EG design only)}
     \item{\code{Cp}:}{Object of class \code{"matrix"}. The C-matrix from the log-linear model of tests X and Y or X and A on population P. (CB design: C-matrix from the log-linear model for the first group) (CB/SG/NEAT CE/NEAT PSE/NEC designs only) }
     \item{\code{Cq}:}{Object of class \code{"matrix"}. The C-matrix from the log-linear model of tests X and Y or X and A on population Q. (CB design: C-matrix from the log-linear model for the second group) (CB/NEAT CE/NEAT PSE/NEC designs only) }
+    \item{\code{coveqYx}:}{Object of class \code{"matrix"}. Matrix containing the covariance matrix of the equating function. (IRT-OSE only)}
     \item{\code{SEEvect}:}{Object of class \code{"SEEvect"}. Matrices containing the standard error vectors for the equatings. If linear=TRUE, then only the standard error vectors for the linear case are included.}
     \item{\code{Pest}:}{Object of class \code{"matrix"}. The estimated probability matrix over population P.}
     \item{\code{Pobs}:}{Object of class \code{"matrix"}. The observed probability matrix over population P.}
@@ -28,6 +29,9 @@ Objects can be created by calls of the form \code{new("keout", ...)}.
     \item{\code{kernel}:}{Object of class \code{"character"}. A character vector denoting the kernel used. }
     \item{\code{type}:}{Object of class \code{"character"}. A character vector describing the design used. }
     \item{\code{equating}:}{Object of class \code{"data.frame"}. A data frame containing the equated values from X to Y and the associated standard errors (for either an equipercentile or a linear equating), as well as the SEED between the equipercentile and linear equating functions and the equated values and the associated standard errors  in the linear case (if an equipercentile equating is conducted).}
+    \item{\code{irt}:}{Object of class \code{"list"}. A list containing the objects from the package ltm containing the IRT models specified, and the asymptotic covariance matrix of the item parameters under the regular IRT parametrization. (IRT-OSE only) }
+    \item{\code{see}:}{Object of class \code{"character"}. A character vector denoting which type of standard errors of equating that are used: analytical or bootstrap. }
+    \item{\code{replications}:}{Object of class \code{"numeric"}. The number of bootstrap replications if using the bootstrap standard error calculations. }
   }
 }
 \section{Methods}{

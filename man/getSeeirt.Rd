@@ -2,7 +2,7 @@
 \alias{getSeeirt}
 \alias{getSeeirt-class}
 \alias{getSeeirt,keout-method}
-\title{Retrieve Equated Values From an IRT-Equating}
+\title{Retrieve Standard Errors of Equating From an IRT-Equating}
 \description{
 Function to retrieve the standard errors of the IRT-equating from an object of class keout created by kequate.
 }

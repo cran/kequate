@@ -1,0 +1,331 @@
+\documentclass[nojss]{jss}
+\usepackage[T1]{fontenc}
+\usepackage[latin9]{inputenc}
+\usepackage{amstext}
+\usepackage{amsmath}
+\usepackage{setspace}
+\usepackage{Sweave}
+\showboxdepth=\maxdimen
+\showboxbreadth=\maxdimen
+%\VignetteIndexEntry{Test Equating Using the Kernel Method with the R Package kequate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% declarations for jss.cls %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% almost as usual
+\author{Bj\"orn Andersson\\Uppsala University\And Marie Wiberg\\Ume{\aa} University}
+\title{IRT Observed-Score Kernel Equating with the \proglang{R} Package \pkg{kequate}}
+
+%% for pretty printing and a nice hypersummary also set:
+\Plainauthor{Bjorn Andersson, Marie Wiberg} %% comma-separated
+\Plaintitle{IRT Observed-Score Kernel Equating with the R Package kequate} %% without formatting
+\Shorttitle{IRT Equating with \pkg{kequate}} %% a short title (if necessary)
+%% an abstract and keywords
+\Abstract{The \proglang{R} package \pkg{kequate} enables observed-score equating using the kernel method of test equating. We present the recent developments of \pkg{kequate}, which provide additional support for item-response theory observed score equating using 2-PL and 3-PL models in the equivalent groups design and non-equivalent groups with anchor test design using chain equating. The implementation also allows for local equating using IRT observed-score equating. Support is provided for the \proglang{R} package \pkg{ltm}.}
+\Keywords{kernel equating, observed-score test equating, item-response theory, \proglang{R}}
+\Plainkeywords{observed-score test equating, item-response theory, R, local equating}%% without formatting
+%% at least one keyword must be supplied
+
+%% publication information
+%% NOTE: Typically, this can be left commented and will be filled out by the technical editor
+%% \Volume{13}
+%% \Issue{9}
+%% \Month{September}
+%% \Year{2004}
+%% \Submitdate{2004-09-29}
+%% \Acceptdate{2004-09-29}
+
+%% The address of (at least) one author should be given
+%% in the following format:
+\Address{
+Bj\"orn Andersson\\
+Department of Statistics\\
+Uppsala University, Box 513\\
+SE-751 20 Uppsala, Sweden\\
+E-mail: \email{bjorn.andersson@statistik.uu.se}\\
+URL: \url{http://katalog.uu.se/empInfo?id=N11-1505}
+
+Marie Wiberg\\
+ Department of Statistics, USBE\\
+ Ume{\aa} University\\
+  SE-901 87 Ume{\aa}, Sweden\\
+  E-mail: \email{marie.wiberg@stat.umu.se}\\
+  URL: \url{http://www.usbe.umu.se/om-handelshogskolan/personal/maewig95}
+}
+%% It is also possible to add a telephone and fax number
+%% before the e-mail in the following format:
+%% Telephone: +43/1/31336-5053
+%% Fax: +43/1/31336-734
+
+%% for those who use Sweave please include the following line (with % symbols):
+%% need no \usepackage{Sweave.sty}
+
+%% end of declarations %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+<<echo=FALSE>>=
+options(prompt = "R> ", continue = "+  ", width = 70, useFancyQuotes = FALSE)
+@
+\section{Introduction}
+\label{section1}
+%When standardized achievement tests are used the main concern is that it they are fair to the individual test takers and between current and former test takers. In order to ensure fairness when a test is given at different time points or when different versions of the same standardized test are given, a statistical procedure known as equating is used. Equating is a statistical process which is used to adjust scores on different test forms so that the test forms can be used interchangeably \citep{KolenBrennan2004}. 
+%There are five important equating requirements which need to be satisfied in order for a function to be called an equating. See e.g. \citet{davihollanthayer2004}, \citet{lord80} and \citet{KolenBrennan2004}. First, the equal construct requirement, which means that only tests which measure the same construct should be equated. Second, the equal reliability requirement, meaning that the tests need to be of equal reliability in order to be equated. Third, the symmetry requirement which requires the equating transformations to be symmetrical. Fourth, the equity requirement, which means that it should be a matter of indifference to each test taker whether test form X or test form Y is administered. Fifth, the population invariance requirement, which means that the equating should be the same regardless of the group of test takers on which the equating was performed. There exist many equating methods which to the most extent satisfy these requirements. In this guide we will concentrate on observed-score equating, and more specifically on the observed-score kernel method of test equating which fulfill these requirements \citep{davihollanthayer2004}.
+
+%The kernel method of test equating \citep{davihollanthayer2004} is an observed-score test equating method comprising five steps: pre-smoothing, score probability estimation, continuization, computation of the equating function and computation of the standard errors of the equating function. The kernel equating method has a number of advantages over other observed-score test equating methods. In particular, it provides explicit formulas for the standard errors of equating in five different designs and directly uses information from the pre-smoothing step in the estimation of these. Support is also provided for IRT observed-score equating. Kernel equating can also handle equating using covariates in a non-equivalent groups setting and provides a method to compare two different equatings using the standard error of the difference between two equating functions. Since this is a unified equating framework which has a large applicability both for the testing industry, the research community and practitioners it is of high interest to create software that anyone with an interest in equating can use.
+The kernel method of test equating \citep{davihollanthayer2004} is a flexible observed-score equating framework which enables the equating of two tests using all common equating designs. Kernel equating has usually been described using pre-smoothing through log-linear models but the framework provides support for input data of various types, such as observed data and data derived from IRT models. Here, we focus on IRT observed-score equating in the kernel method of test equating. We introduce IRT observed-score kernel equating in the equivalent groups (EG) design and non-equivalent groups with anchor test (NEAT) design using chain equating (CE) and illustrate how to conduct these equating methods using the \proglang{R} \citep{rteam13} package \pkg{kequate} \citep{AnderssonBranbergWiberg12}. It is also shown how local equating using IRT observed-score equating \cite{Linden2011} can be conducted in \pkg{kequate}.
+
+This document has the following structure. In Section~\ref{section2}, IRT observed-score equating in the kernel equating framework is described and in Section~\ref{section3} the implementation of IRT observed-score equating in \pkg{kequate} is introduced. In Section~\ref{section4} examples of the available methods of IRT observed-score equating in \pkg{kequate} are given and in Section~\ref{section5} future additions to the package are presented.
+
+%In Section~\ref{section2} the kernel equating framework is introduced. Section~\ref{section3} contains a description of how to aggregate and sort data on the individual level and how to estimate log-linear models with the \proglang{R} function \code{glm()}\citep[\pkg{stats}][]{rteam11}. We give examples for all the included equating designs and instruct how to decide between different model specifications using tools provided by \pkg{kequate}. The package \pkg{kequate} is described in Section~\ref{section4} and in Section~\ref{section5} examples of equating using \pkg{kequate} for all equating designs are given.
+
+
+
+\section[IRT observed-score kernel equating]{IRT observed-score kernel equating}
+\label{section2}
+The kernel equating framework enables the usage of score probabilities which are either observed or estimated using a statistical model. Typically the kernel equating framework has utilized  score probabilities derived from log-linear models \citep{HollandKingThayer1989, davihollanthayer2004, LeeDavier2012}. The usage of score probabilities derived from IRT models, which would enable IRT observed-score equating, has been suggested \citep{Davier2010} but has not been described in the literature. IRT observed-score equating has however been described in   traditional equipercentile equating using linear interpolation \citep{LordWingersky1984, KolenBrennan2004}. The asymptotic standard errors of equating for IRT observed-score equating in various NEAT designs were given in \citet{Ogasawara2003}. For kernel equating, the necessary components are the covariance matrices of the score probabilities which are needed to calculate the asymptotic standard errors of equating. In this section we show how the results of \citet{Ogasawara2003} can be applied in the kernel equating framework for the NEAT CE design in the case of an external anchor test under the three parameter logistic model (3-PL). The results for the EG design  and when using the two parameter logistic model (2-PL) are similar, but simpler, and are therefore omitted.
+
+\subsection{IRT observed-score kernel equating in the NEAT CE design}
+Let $X$ and $Y$ denote two tests, each with $k$ number of items. For the sake of simplicity we assume an equal number of items on the tests in this section but the results apply to the case where the number of items are not equal and the implementation in \pkg{kequate} allows for a non-equal number of items. The tests consist of $k^*$ unique items and $k_A$ common items. Denote the subtests of unique items $X^*$ and $Y^*$ and the subtest of common items $A$. Each test is administered to a separate group of test takers each from a separate population. Denote the populations $P$ and $Q$, respectively, with samples sizes $n$ and $m$ for the respective test groups. 
+%We observe the vectors of true or false responses for each individual $i \in \{1, 2, \dots, n\}$ and $j \in \{1, 2, \dots, m \}$ as $\mathbf{x}_i=<x_{i1}, x_{i2}, \dots, x_{ik_X}>$ and $\mathbf{y}_j=<y_{j1}, y_{j2}, \dots, y_{jk_Y}>$, where $\forall x_{il}, y_{jl} \in \{0, 1\}$ and $l \in \{1, 2, \dots, k \}$, with 0 denoting a false response and 1 denoting a true response. We further define the matrices of observations as $\mathbf{X}=(\mathbf{x}_1', \mathbf{x}_2', \dots, \mathbf{x}_n')$ and $\mathbf{Y}=(\mathbf{y}_1', \mathbf{y}_2', \dots, \mathbf{y}_m')$.
+
+Let $\Theta_P$ and $\Theta_Q$ be the random variables corresponding to the ability level of a member of the population from which each test taker for tests $X$ and $Y$ is taken. 
+%Let $F_{\Theta_P}(\theta_P)$ and $G_{\Theta_Q}(\theta_Q)$ denote the cumulative distribution functions of $\Theta_P$ and $\Theta_Q$. 
+Now, let $P_{Xl}(\theta_P)$  and $P_{Yl}(\theta_Q)$ be the probabilities to answer item $l$ of tests X and Y correctly, viewed as a functions of the ability levels $\theta_P$ and $\theta_Q$. With the 3-PL model we have that
+\begin{equation}
+\label{eq1}
+P_{Xl}(\theta_P)=c_{Xl}+\frac{1-c_{Xl}}{1+\exp[-a_{Xl}(\theta_P -b_{Xl})]},
+\end{equation}
+where $a_{Xl}$ is the discrimination parameter for item $l$, $b_{Xl}$ is the difficulty parameter for item $l$ and $c_{Xl}$ is the guessing parameter for item $l$ \citep{Ogasawara2003}. $P_{Yl}(\theta_Q)$ is defined analogously. The 2-PL model is also defined by Equation~\ref{eq1}, if $c_{Xl}=0$. Hence with the 3-PL model we have a total of $3k$ number of parameters across all items for tests X and Y respectively. Let $\boldsymbol \alpha_X$ and $\boldsymbol \alpha_Y$ denote the $1 \times 3k$ vectors of all item parameters for tests X and Y.
+
+We define $\beta_{X, x}(\theta_P)$ and $\beta_{Y, y}(\theta_Q)$ as the probabilities to obtain score values $x, y \in \{0, 1, \dots, k\}$ on tests X and Y, respectively, as a function of the ability levels $\theta_P$ and $\theta_Q$. Similarly, we define $\beta_{X^*, x^*}(\theta_P)$ and $\beta_{Y^*, y^*}(\theta_Q)$ as the probabilities to obtain the score values $x^*, y^* \in \{0, 1, \dots, k^*\}$ and $\beta_{A_P, a}(\theta_P)$ and $\beta_{A_Q, a}(\theta_Q)$  as the probabilities to obtain the score values $a \in \{0, 1, \dots k_A\}$. These probabilities can be obtained by using the procedure outlined in \citet{LordWingersky1984}.
+
+Now, let $\beta_{X^*, x^*}$, $\beta_{Y^*, y^*}$, $\beta_{A_P, a}$ and $\beta_{A_Q, a}$ be the probabilities to obtain score values $x^*, y^*$ and $a$ across all ability levels and let $\boldsymbol\beta_{X^*}$ and $\boldsymbol\beta_{Y^*}$ be the $1 \times (k^*+1)$ vectors of probabilities $\beta_{X^*, x^*}$ and $\beta_{Y^*, y^*}$ to obtain each of the score values $x^*, y^* \in \{0, 1, \dots, k^*\}$ on the tests $X^*$ and $Y^*$ and let $\boldsymbol\beta_{A_P}$ and $\boldsymbol\beta_{A_Q}$ be the $1 \times (k_A+1)$ vectors of probabilities $\beta_{A_P, a}$ and $\beta_{A_Q, a}$ to obtain each of the score values $a \in \{0, 1, \dots k_A \}$ on test A. We have that 
+\begin{equation}
+\label{eq2}
+\beta_{X^*,x^*}\approx\sum_{r=1}^R\beta_{X,x^*}(t_r)W(t_r),
+\end{equation}
+where $t_r$ denotes the ability level for the $r$-th quadrature point, $r \in \{1, 2, \dots, R \}$, and where $W(\cdot)$ is a weight function such that each quadrature point is weighted in accordance with the assumptions made about the distribution of the ability level. Corresponding expressions apply for $\beta_{Y^*, y^*}$, $\beta_{A_P, a}$ and $\beta_{A_Q, a}$. We are interested in finding $\mathbf{\Sigma}_{(\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'}$ and $\mathbf{\Sigma}_{(\boldsymbol\beta_Y^*, \boldsymbol\beta_{A_Q})'}$. The results are of the same form for both $(\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'$ and $(\boldsymbol\beta_Y^*, \boldsymbol\beta_{A_Q})'$ so we consider only $(\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'$ hereafter. The vector $(\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'$ is a function of parameters $\boldsymbol \alpha_X$ which are estimated using marginal maximum likelihood. We thus have that $\sqrt{n}(\hat{\boldsymbol \alpha_X}-\boldsymbol \alpha_X) \rightarrow N(\boldsymbol 0,\mathbf{\Sigma}_{\boldsymbol \alpha_X})$ as $n \rightarrow \infty$. Since $(\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'$ is a differentiable function of the item parameters, the variance of $(\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'$ can be derived using Cramer's theorem, retrieving
+\begin{equation}
+\label{eq3}
+\sqrt{n}\left[\hat{(\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'} - (\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'\right] \rightarrow N \left\{\boldsymbol 0, \frac{\partial (\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'}{\partial \boldsymbol \alpha_X} \mathbf{\Sigma}_{\boldsymbol \alpha_X} \left[\frac{\partial (\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'}{\partial \boldsymbol \alpha_X}\right]' \right\},
+\end{equation}
+where, following \citet{Ogasawara2003}, $\frac{\partial (\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'}{\partial \boldsymbol \alpha_X}$ 
+is a $(k+1) \times 3k$ matrix of partial derivatives with $1\times3$ vector entries $\frac{\partial \beta_{X^*,x^*}}{\partial \boldsymbol \alpha_{Xl}}$  and $\frac{\partial \beta_{A_P,a}}{\partial \boldsymbol \alpha_{l_A}}$, $x^* \in \{0, 1, \dots, k^*\}$, $l \in \{1, 2, \dots, k^*\}$, $a \in \{0, 1, \dots, k_A\}$, $l_A \in \{1, 2, \dots, k_A\}$, such that
+\begin{eqnarray}
+\label{eq4}
+&&\frac{\partial \beta_{X^*,x^*}}{\partial \boldsymbol \alpha_{Xl}}
+=\frac{\partial }{\partial \boldsymbol \alpha_{Xl}}\sum_{r=1}^R \beta_{X^*,x^*}(t_r)W(t_r) \nonumber\\
+&&=\sum_{r=1}^R W(t_r) \left\{ \mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^*, u_{X^*l}=1 |\boldsymbol\alpha_X, \theta_P=t_r \right] - \beta_{X^*, x^*}(t_r) P_{X^*l}(t_r)\right\}\nonumber\\
+&&\times \frac{\left< \left[P_{X^*l}(t_r)-c_{X^*l} \right] D(t_r-b_{X^*l}), -\left[P_{X^*l}(t_r)-c_{X^*l} \right] Da_{X^*l}, 1\right>}{P_{X^*l}(t_r)(1-c_{X^*l})},
+\end{eqnarray}
+and 
+\begin{eqnarray}
+\label{eq5}
+&&\frac{\partial \beta_{A_P,a}}{\partial \boldsymbol \alpha_{Xl_A}}
+=\frac{\partial }{\partial \boldsymbol \alpha_{Xl_A}}\sum_{r=1}^R \beta_{A_P,a}(t_r)W(t_r) \nonumber\\
+&&=\sum_{r=1}^R W(t_r)\left\{ \mathrm{Pr} \left[\left( \sum_{p_A=1}^{k_A} u_{Ap_A}\right)=a, u_{Al_A}=1 |\boldsymbol\alpha_X, \theta_P=t_r \right] - \beta_{A_P, a}(t_r) P_{Al_A}(t_r)\right\}\nonumber\\
+&&\times \frac{\left< \left[P_{Al_A}(t_r)-c_{Al_A} \right] D(t_r-b_{Al_A}), -\left[P_{Al_A}(t_r)-c_{Al_A} \right] Da_{Al_A}, 1\right>}{P_{Al_A}(t_r)(1-c_{Al_A})},
+\end{eqnarray}
+where $u_{X^*l}$, $u_{X^*p}$, $u_{Al_A}$ and $u_{Ap_A}$ take value $0$ for an incorrect answer and  $1$ for a correct answer to each item $l, p \in \{1, 2, \dots k^*\}$, $l_A, p_A \in \{1, 2, \dots k_A\}$. As such, 
+\begin{equation}
+\label{eq6}
+\mathrm{Pr} \left[\left( \sum_{p=1}^k u_{Xp}\right)=x^*, u_{Xl}=1 |\boldsymbol\alpha_P, \theta_P=t_r \right]
+\end{equation}
+is the probability to achieve score $x^*$ while answering item $l$ correctly for the ability $\theta_P=t_r$. By Bayes theorem we then have
+\begin{eqnarray}
+\label{eq7}
+&&\mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^*, u_{X^*l}=1 |\boldsymbol\alpha_X, \theta_P=t_r\right] =\nonumber\\
+&&\mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^* |\boldsymbol\alpha_X, \theta_P=t_r, u_{X^*l}=1\right] \times \mathrm{Pr} \left[ u_{X^*l}=1 |\boldsymbol\alpha_X, \theta_P=t_r\right].
+\end{eqnarray}
+From Equation~\ref{eq1} it follows that 
+\begin{equation}
+\label{eq8}
+\mathrm{Pr} \left[ u_{X^*l}=1 |\boldsymbol\alpha, \theta_P=t_r\right]=P_{X^*l}(t_r)
+\end{equation}
+and we note that 
+\begin{equation}
+\label{eq9}
+\mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^* |\boldsymbol\alpha, \theta_P=t_r, u_{X^*l}=1\right] 
+\end{equation}
+can be found with the algorithm in \citet{LordWingersky1984} by fixing the probability to answer item $l$ correctly to 1. 
+
+Since Equation~\ref{eq3} defines the asymptotic distribution of the score probabilities the results can be directly applied in the kernel equating framework by the derivations provided in \citet{davihollanthayer2004}.
+
+\section[Implementation of IRT observed-score equating in kequate]{Implementation of IRT observed-score equating in \pkg{kequate}}
+\label{section3}
+The package \pkg{kequate} for \proglang{R} supports IRT observed-score equating for the EG and NEAT CE designs with the 2-PL or 3-PL IRT models. Asymptotic or bootstrap standard errors are calculated for each of the methods. The input used can either be matrices of observed item responses for each individual or objects containing IRT models which have been estimated using the \proglang{R} package \pkg{ltm} \citep{Rizopoulos2006}. 
+
+To conduct an IRT observed-score equating in \pkg{kequate}, the function \code{irtose()} is used. The function \code{irtose()} has the following formal function call:
+
+\code{irtose(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="analytical", \\ replications=50, kernel="gaussian", h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, \\haQ=0),  hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), \\KPEN=0, wpen=0.5, linear=FALSE, slog=1, bunif=1, altopt=FALSE)}
+
+Explanations of each of the arguments supplied to \code{irtose()} are given in Table~\ref{table1}.
+\begin{table}[!hbp]\footnotesize
+\begin{center}
+\begin{tabular}{|p{3.45cm}|p{2.11cm}|p{8.57cm}|}
+\hline
+\textbf{Argument(s)} & \textbf{Designs} & \textbf{Description} \\ \hline
+\code{design} & ALL & A character vector indicating which design to use. Possible designs are \code{"CE"} and \code{"EG"}. \\ \hline
+\code{P}, \code{Q} & ALL & Matrices or objects created by the \proglang{R} package \pkg{ltm} containing either the responses for each question in groups P and Q or the estimated IRT models in groups P and Q. \\ \hline
+\code{x}, \code{y} & ALL & Score value vectors for test X and test Y. \\ \hline
+\code{a} & CE & Score value vector for the anchor test A. \\ \hline
+\code{qpoints} & ALL & A numeric vector containing the quadrature points used in the equating. If not specified, the quadrature points from the IRT models will be used. \\ \hline
+\code{model} & ALL & A character vector indicating which IRT model to use. Available models are 2PL and 3PL. Default is \code{"2PL"}. \\ \hline
+\code{see} & ALL & A character vector indicating which standard errors of equating to use. Options are \code{"analytical"} and \code{"bootstrap"}, with default \code{"analytical"}. \\ \hline
+\code{replications} & ALL & The number of bootstrap replications if using the bootstrap standard error calculations. Default is 50. \\ \hline
+\code{kernel} & ALL & A character vector denoting which kernel to use, with options \code{"gaussian"}, \code{"logistic"}, \code{"stdgaussian"} and \code{"uniform"}. Default is \code{"gaussian"}. \\ \hline
+\code{h} & ALL & Optional argument to specify the continuization parameters manually as a list with suitable bandwidth parameters. In an EG design design: \code{hx} and \code{hy}, in a NEAT CE design: \code{hxP}, \code{haP}, \code{hyQ} and \code{haQ}. (If \code{linear=TRUE}, then these arguments have no effect.) \\ \hline
+\code{hlin} & ALL & Optional argument to specify the linear continuization parameters manually as a list with suitable bandwidth parameters. In an EG design: \code{hxlin} and \code{hylin}, in a NEAT CE design: \code{hxPlin}, \code{haPlin}, \code{hyQlin} and \code{haQlin}. \\ \hline
+\code{slog} & ALL & The parameter used in the logistic kernel. Default is 1. \\ \hline
+\code{bunif} & ALL & The parameter used in the uniform kernel. Default is 0.5. \\ \hline
+\code{KPEN} & ALL & Optional argument to specify the constant used in deciding the optimal continuization parameter. Default is 0. \\ \hline
+\code{wpen} & ALL & An argument denoting at which point the derivatives in the second part of the penalty function should be evaluated. Default is 1/4. \\ \hline
+\code{linear} & ALL & Logical denoting if a linear equating only is to be performed.  Default is \code{FALSE}. \\ \hline
+\code{altopt} & ALL & Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is \code{FALSE}. \\ \hline
+\end{tabular}
+\caption{Arguments supplied to \code{irtose()}.}
+\label{table1}
+\end{center}
+\end{table}
+
+If matrices of responses are provided as input to \code{irtose()}, the IRT models will be estimated using the \proglang{R} package \pkg{ltm}. The settings used in \pkg{ltm} will then be the default ones, except for the case of the 3-PL model where the \code{nlminb} optimizer is used instead of the default. Note that the 3-PL model has issues with convergence, hence it will not always be possible to get stable estimates of item parameters using this model. It is recommended to estimate the 3-PL models separately using the package \pkg{ltm}. Currently, \pkg{kequate} only provides support for IRT models without particular restrictions on the parameters.
+% enables the equating of two tests with the kernel method of equating for the EG, SG, CB, NEAT PSE, NEAT CE and NEC designs. \pkg{kequate} can use \code{glm} objects created using the \proglang{R} function \code{glm()} \citep[\pkg{stats}][]{rteam11} as input arguments and estimate the equating function and associated standard errors directly from the information contained therein. Support is also provided for item-response theory models estimated using the \proglang{R} package \pkg{ltm}. The \proglang{S4} system of classes and methods, a more formal and rigorous way of handling objects in \proglang{R} (for details see e.g. \cite{chambers2008}), is used in \pkg{kequate}, providing methods for the generic functions \code{plot()} and \code{summary()} for a number of newly defined classes. The main function of the package is \code{kequate()}, which enables the equating of two parallel tests using the previously defined equating designs. The function \code{kequate()} has the following formal function call: \code{kequate(design, \ldots)} where \code{design} is a character vector indicating the design used and \code{\ldots} should contain the additional arguments which depend partly on the design chosen. The possible data collection designs and the associated function calls are described below. Explanations of each argument that may be supplied to \code{kequate()} are collected in Table~\ref{table1}.
+\section[Examples]{Examples}
+\label{section4}
+For these examples, data was simulated using \proglang{R} in accordance with the 2-PL and 3-PL IRT models. The simulated data for both the 2-PL model and the 3-PL model have the same ability level for each individual and the same discrimination and difficulty parameters for each item. The simulation procedure is identical to that for the 2-PL and 3-PL IRT models described in \citet{Ogasawara2003}. The \proglang{R} code which generated the data is given below.
+<<echo=TRUE>>=
+library(kequate)
+set.seed(7)
+akX <- runif(15, 0.5, 2)
+bkX <- rnorm(15)
+ckX <- runif(15, 0.1, 0.2)
+akY <- runif(15, 0.5, 2)
+bkY <- rnorm(15)
+ckY <- runif(15, 0.1, 0.2)
+akA <- runif(15, 0.5, 2)
+bkA <- rnorm(15)
+ckA <- runif(15, 0.1, 0.2)
+
+dataP <- matrix(0, nrow=1000, ncol=30)
+dataQ <- matrix(0, nrow=1000, ncol=30)
+data3plP <- matrix(0, nrow=1000, ncol=30)
+data3plQ <- matrix(0, nrow=1000, ncol=30)
+
+for(i in 1:1000){
+ability <- rnorm(1)
+dataP[i,1:15] <- (1/(1+exp(-akX*(ability-bkX)))) > runif(15)
+dataP[i,16:30] <- (1/(1+exp(-akA*(ability-bkA)))) > runif(15)
+data3plP[i,1:15] <- (ckX+(1-ckX)/(1+exp(-akX*(ability-bkX)))) > runif(15)
+data3plP[i,16:30] <- (ckA+(1-ckA)/(1+exp(-akA*(ability-bkA)))) > runif(15)
+}
+
+for(i in 1:1000){
+ability <- rnorm(1, mean=0.5)
+dataQ[i,1:15] <- (1/(1+exp(-akY*(ability -bkY)))) > runif(15)
+dataQ[i,16:30] <- (1/(1+exp(-akA*(ability -bkA)))) > runif(15)
+data3plQ[i,1:15] <- (ckY+(1-ckY)/(1+exp(-akY*(ability-bkY)))) > runif(15)
+data3plQ[i,16:30] <- (ckA+(1-ckA)/(1+exp(-akA*(ability-bkA)))) > runif(15)
+}
+@
+\subsection{IRT observed-score kernel equating with the 2-PL model}
+For the 2-PL model data was simulated in a non-equivalent groups with anchor test design for two populations of size 1000 with differing ability levels. The main tests had 15 items each and the anchor test had 15 items. The simulated data were stored in matrices \code{dataP} for group P and \code{dataQ} for group Q. To equate the two main tests using chain equating, we then call the function \code{irtose()} as follows:
+<<echo=TRUE>>=
+eq2pl <- irtose("CE", dataP, dataQ, 0:15, 0:15, 0:15)
+@
+To display a summary of the equating we write:
+<<echo=TRUE>>=
+summary(eq2pl)
+@
+The equating shows that the tests are similar in difficulty but that test Y is slightly more difficult than test X.
+
+When supplying matrices of responses to each item as input to \code{irtose()}, the IRT models are estimated using the package \pkg{ltm}. An equating is then conducted using the estimated IRT models. The objects created by \pkg{ltm} are stored in the output from \code{irtose()}. To access the objects we write:
+<<echo=TRUE>>=
+irtobjects <- eq2pl@irt
+@
+This will create a list of the objects created by \pkg{ltm} and the adjusted asymptotic covariance matrices of the item parameters. We save the objects from \pkg{ltm} for future usage:
+<<echo=TRUE>>=
+sim2plP <- irtobjects$ltmP
+sim2plQ <- irtobjects$ltmQ
+@
+
+\subsection{IRT observed-score kernel equating with the 3-PL model}
+<<echo=FALSE>>=
+load("irtguide.RData")
+@
+For the 3-PL model data was again simulated in a non-equivalent groups with anchor test design for two populations of size 1000 with differing ability levels. As before, the main tests had 15 items each and the anchor test had 15 items. In this example, the IRT models were estimated using the function\code{tpm()} in the package \pkg{ltm}, creating the objects \code{sim3plP} and \code{sim3plQ} containing the IRT models. For details of IRT model estimation using \pkg{ltm}, see \citet{Rizopoulos2006}. The resulting objects are then given as input to the function \code{irtose()} to conduct an equating:
+<<echo=TRUE>>=
+eq3pl <- irtose("CE", sim3plP, sim3plQ, 0:15, 0:15, 0:15, model="3pl")
+summary(eq3pl)
+@
+We plot the results with the method for the function \code{plot()} for the class \code{keout} created by \code{itrtose()}.
+<<label=eq3plplot, include=FALSE, height=7, width=9, echo=TRUE>>=
+plot(eq3pl)
+@
+The plot is seen in Figure~\ref{figure1}.
+\begin{figure}[!htpb]
+\begin{center}
+<<label=eq3plplot1, fig=TRUE, echo=FALSE>>=
+<<eq3plplot>>
+@
+\end{center}
+\caption{The equated values and standard errors of equating for the IRT observed-score equating using the 3-PL model.}
+\label{figure1}
+\end{figure}
+
+\subsection{IRT observed-score local equating}
+IRT observed-score equating can be utilized when conducting what is called local equating, where different equating functions are calculated based on the ability level or a proxy of the ability level of the individuals taking the tests to be equated. Local equating using IRT observed-score equating is conducted by fixing the ability level to a particular single value or a sequence of values and then only considering this value or sequence of values when calculating the score probabilities. These score probabilities are then used for the equating just as in a regular IRT observed-score equating.
+
+In \pkg{kequate}, local equating using IRT observed-score equating can be conducted by adjusting the optional argument \code{qpoints} in the \code{irtose()} function call. For example, by specifying \code{qpoints=1} a local equating for the individuals with the ability level equal to 1 is conducted. The argument \code{qpoints} can be set to a numeric vector of any length.
+
+As an example, we conduct a local equating for individuals with ability level equal to -1, 0 and 1, respectively, using the simulated 2-PL data previously described. We then call \code{irtose()} as follows:
+<<echo=TRUE>>=
+eq2plLOW <- irtose("CE", sim2plP, sim2plQ, 0:15, 0:15, 0:15, qpoints=-1)
+eq2plAVG <- irtose("CE", sim2plP, sim2plQ, 0:15, 0:15, 0:15, qpoints=0)
+eq2plHIGH <- irtose("CE", sim2plP, sim2plQ, 0:15, 0:15, 0:15, qpoints=1)
+@
+<<label=leplot, include=FALSE, height=7, width=9, echo=FALSE>>=
+plot(0:15, getEq(eq2plLOW), ylim=c(-1, 15), pch=1, ylab="", xlab="")
+par(new=TRUE)
+plot(0:15, getEq(eq2plAVG), ylim=c(-1, 15), pch=2, ylab="", xlab="")
+par(new=TRUE)
+plot(0:15, getEq(eq2plHIGH), ylim=c(-1, 15), pch=3, ylab="Equated value", xlab="Score value")
+legend("topleft", inset=.1, title="Ability level:", c("-1", "0", "1"), pch=c(1, 2, 3))
+@
+\begin{figure}[!htpb]
+\begin{center}
+<<label=leplot1, fig=TRUE, echo=FALSE>>=
+<<leplot>>
+@
+\end{center}
+\caption{The equated values for each score value for three different ability levels in a local equating in the NEAT CE design.}
+\label{figure2}
+\end{figure}
+The results of these equatings are displayed in Figure~\ref{figure2}, showing that the equating function is somewhat different for the three different ability levels.
+%This will instruct \code{kequate()} to conduct an IRT-OSE in the kernel equating framework in addition to a regular equipercentile equating. It is possible to use unsmoothed frequencies while conducting an IRT-OSE. Specifying \code{linear = TRUE} will instruct \code{kequate()} to do a linear equating for both the regular method and for the IRT-OSE. Using IRT-OSE is not limited to an EG design. It can be used as a supplement in any of the designs available in \pkg{kequate}.
+
+%For all designs it is also possible to specify the constants \code{KPEN} and \code{wpen} used in finding the optimal continuization parameters. Defaults are \code{KPEN = 0} and \code{wpen = 1/4}. Additionally, the logical argument \code{linear} can be used to specify that a linear equating only is to be performed, where default is \code{linear = FALSE}. Given two different equating functions derived from the same log-linear models, the SEED between two equatings can be calculated. In \pkg{kequate}, the function \code{genseed()} takes as input two objects of class \code{keout} and calculates the SEED between two kernel equipercentile or linear equatings. By default the kernel equipercentile equatings are used. To instead compare two linear equatings to each other, the logical argument \code{linear = TRUE} should be used when calling \code{genseed()}. The output from \code{genseed()} is an object of class \code{genseed} which can be plotted using \code{plot()}, creating a suitable plot of the difference between the equating functions and the associated SEED. To compare a NEAT PSE equating to a NEAT CE design and to plot the resulting object, we write:
+%<<label=seedplot, echo=TRUE, include=FALSE, height=7, width=9>>=
+%SEEDPSECE <- genseed(keNEATPSE, keNEATCE)
+%plot(SEEDPSECE)
+%@
+%The resulting plot is seen in Figure~\ref{figure2}.
+%\begin{figure}[!htpb]
+%\begin{center}
+%<<label=seedplot1, fig=TRUE, echo=FALSE, width=9, height=7>>=
+%<<seedplot>>
+%@
+%\end{center}
+%\caption{The difference between PSE and CE in a NEAT design for each score value with the associated SEED.}
+%\label{figure2}
+%\end{figure}
+%Given an object of class \code{keout} created by \code{kequate()} using the function call \code{linear = FALSE} (default), the SEED between the KE-equipercentile and the linear equating functions can be retrieved by using the \code{getSeed()} function. The function \code{getSeed()} returns an object of class \code{genseed} which can be plotted using the generic function \code{plot()}, resulting in a graph similar to the one in Figure~\ref{figure2}.
+%% include your article here, just as usual
+%% Note that you should use the \pkg{}, \proglang{} and \code{} commands.
+%% Note: If there is markup in \(sub)section, then it has to be escape as above.
+\section{Future developments}
+\label{section5}
+In the present implementation, only the 2-PL and 3-PL IRT models without parameter restrictions are supported in \pkg{kequate}. Future work will include support for the additional IRT models available in \pkg{ltm} such as the Rasch model and the 1-PL model and the ability to use the features of parameter restrictions available in \pkg{ltm} when conducting IRT observed-score equating. Additionally, the NEAT design using post-stratification equating (PSE) with support for various ways of estimating the equating coefficients is planned to be included in the package.
+\bibliography{kequate}
+\end{document}

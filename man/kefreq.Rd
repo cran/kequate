@@ -40,7 +40,7 @@ A data frame containing the score values and the frequencies associated with eac
 \code{\link{table}}, \code{\link{kequate}}
 }
 \examples{
-freqdata<-data.frame(X=c(1,2,2,1,2,2,2,2,3,1,2,1,4,2,1,1,3,3,3,3), 
+freqdata <- data.frame(X=c(1,2,2,1,2,2,2,2,3,1,2,1,4,2,1,1,3,3,3,3), 
 A=(c(0,2,1,1,0,3,1,2,2,0,2,0,3,1,1,2,2,2,1,2)))
-Pdata<-kefreq(freqdata$X, 0:5, freqdata$A, 0:3)
+Pdata <- kefreq(freqdata$X, 0:5, freqdata$A, 0:3)
 }

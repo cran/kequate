@@ -11,11 +11,11 @@ The kernel equating technique for equating test scores is implemented, supportin
 \tabular{ll}{
 Package: \tab kequate\cr
 Type: \tab Package\cr
-Version: \tab 1.2.1\cr
-Date: \tab 2013-03-11\cr
+Version: \tab 1.3.1\cr
+Date: \tab 2013-07-18\cr
 License: \tab GPL-3\cr
 LazyLoad: \tab yes\cr
-Depends: \tab R (>=2.11.0), graphics, methods, stats\cr
+Depends: \tab R (>=2.11.0), graphics, methods, stats, ltm\cr
 }
 }
 
