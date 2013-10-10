@@ -29,6 +29,8 @@ An object of class 'cdist' containing the following slots
 \item{obs2}{Matrix of conditional means, variances, skewnesses and kurtoses of A given X for the observed score distribution.}
 }
 \references{
+von Davier, A.A., Holland, P.W., Thayer, D.T. (2004). \emph{The Kernel Method of Test Equating.} Springer-Verlag New York.
+
 Holland, P.W.,  Thayer, D. (1998). Univariate and Bivariate Loglinear Models for Discrete Test Score Distributions \emph{ETS Technical Report No} \bold{98-1}.
 }
 \author{

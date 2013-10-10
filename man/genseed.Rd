@@ -28,6 +28,8 @@ The standard error of the difference between two equating functions (SEED) can b
 A data frame containing the difference between the equated values of two equating functions and the SEED of the two equatings for equating X to Y (eqYxD and SEEDYx).
 }
 \references{
+Andersson, B., Branberg, K., Wiberg, M. (2013). Performing the Kernel Method of Test Equating with the Package \bold{kequate}. \emph{Journal of Statistical Software}, \bold{55(6)}, 1--25. URL \url{http://www.jstatsoft.org/v55/i06/}
+
 von Davier, A.A., Holland, P.W., Thayer, D.T. (2004). \emph{The Kernel Method of Test Equating.} Springer-Verlag New York.
 }
 \author{

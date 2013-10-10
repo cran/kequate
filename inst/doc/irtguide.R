@@ -8,7 +8,7 @@ options(prompt = "R> ", continue = "+  ", width = 70, useFancyQuotes = FALSE)
 
 
 ###################################################
-### code chunk number 2: irtguide.Rnw:198-230
+### code chunk number 2: irtguide.Rnw:200-232
 ###################################################
 library(kequate)
 set.seed(7)
@@ -45,38 +45,38 @@ data3plQ[i,16:30] <- (ckA+(1-ckA)/(1+exp(-akA*(ability-bkA)))) > runif(15)
 
 
 ###################################################
-### code chunk number 3: irtguide.Rnw:234-235
+### code chunk number 3: irtguide.Rnw:236-237
 ###################################################
 eq2pl <- irtose("CE", dataP, dataQ, 0:15, 0:15, 0:15)
 
 
 ###################################################
-### code chunk number 4: irtguide.Rnw:238-239
+### code chunk number 4: irtguide.Rnw:240-241
 ###################################################
 summary(eq2pl)
 
 
 ###################################################
-### code chunk number 5: irtguide.Rnw:244-245
+### code chunk number 5: irtguide.Rnw:246-247
 ###################################################
 irtobjects <- eq2pl@irt
 
 
 ###################################################
-### code chunk number 6: irtguide.Rnw:248-250
+### code chunk number 6: irtguide.Rnw:250-252
 ###################################################
 sim2plP <- irtobjects$ltmP
 sim2plQ <- irtobjects$ltmQ
 
 
 ###################################################
-### code chunk number 7: irtguide.Rnw:254-255
+### code chunk number 7: irtguide.Rnw:256-257
 ###################################################
 load("irtguide.RData")
 
 
 ###################################################
-### code chunk number 8: irtguide.Rnw:258-260
+### code chunk number 8: irtguide.Rnw:260-262
 ###################################################
 eq3pl <- irtose("CE", sim3plP, sim3plQ, 0:15, 0:15, 0:15, model="3pl")
 summary(eq3pl)
@@ -95,7 +95,7 @@ plot(eq3pl)
 
 
 ###################################################
-### code chunk number 11: irtguide.Rnw:283-286
+### code chunk number 11: irtguide.Rnw:285-288
 ###################################################
 eq2plLOW <- irtose("CE", sim2plP, sim2plQ, 0:15, 0:15, 0:15, qpoints=-1)
 eq2plAVG <- irtose("CE", sim2plP, sim2plQ, 0:15, 0:15, 0:15, qpoints=0)

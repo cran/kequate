@@ -7,7 +7,7 @@
 \usepackage{Sweave}
 \showboxdepth=\maxdimen
 \showboxbreadth=\maxdimen
-%\VignetteIndexEntry{Test Equating Using the Kernel Method with the R Package kequate}
+%\VignetteIndexEntry{IRT Observed-Score Kernel Equating with the R Package kequate}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% declarations for jss.cls %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -111,45 +111,47 @@ where $t_r$ denotes the ability level for the $r$-th quadrature point, $r \in \{
 \label{eq3}
 \sqrt{n}\left[\hat{(\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'} - (\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'\right] \rightarrow N \left\{\boldsymbol 0, \frac{\partial (\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'}{\partial \boldsymbol \alpha_X} \mathbf{\Sigma}_{\boldsymbol \alpha_X} \left[\frac{\partial (\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'}{\partial \boldsymbol \alpha_X}\right]' \right\},
 \end{equation}
-where, following \citet{Ogasawara2003}, $\frac{\partial (\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'}{\partial \boldsymbol \alpha_X}$ 
-is a $(k+1) \times 3k$ matrix of partial derivatives with $1\times3$ vector entries $\frac{\partial \beta_{X^*,x^*}}{\partial \boldsymbol \alpha_{Xl}}$  and $\frac{\partial \beta_{A_P,a}}{\partial \boldsymbol \alpha_{l_A}}$, $x^* \in \{0, 1, \dots, k^*\}$, $l \in \{1, 2, \dots, k^*\}$, $a \in \{0, 1, \dots, k_A\}$, $l_A \in \{1, 2, \dots, k_A\}$, such that
-\begin{eqnarray}
-\label{eq4}
-&&\frac{\partial \beta_{X^*,x^*}}{\partial \boldsymbol \alpha_{Xl}}
-=\frac{\partial }{\partial \boldsymbol \alpha_{Xl}}\sum_{r=1}^R \beta_{X^*,x^*}(t_r)W(t_r) \nonumber\\
-&&=\sum_{r=1}^R W(t_r) \left\{ \mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^*, u_{X^*l}=1 |\boldsymbol\alpha_X, \theta_P=t_r \right] - \beta_{X^*, x^*}(t_r) P_{X^*l}(t_r)\right\}\nonumber\\
-&&\times \frac{\left< \left[P_{X^*l}(t_r)-c_{X^*l} \right] D(t_r-b_{X^*l}), -\left[P_{X^*l}(t_r)-c_{X^*l} \right] Da_{X^*l}, 1\right>}{P_{X^*l}(t_r)(1-c_{X^*l})},
-\end{eqnarray}
-and 
-\begin{eqnarray}
-\label{eq5}
-&&\frac{\partial \beta_{A_P,a}}{\partial \boldsymbol \alpha_{Xl_A}}
-=\frac{\partial }{\partial \boldsymbol \alpha_{Xl_A}}\sum_{r=1}^R \beta_{A_P,a}(t_r)W(t_r) \nonumber\\
-&&=\sum_{r=1}^R W(t_r)\left\{ \mathrm{Pr} \left[\left( \sum_{p_A=1}^{k_A} u_{Ap_A}\right)=a, u_{Al_A}=1 |\boldsymbol\alpha_X, \theta_P=t_r \right] - \beta_{A_P, a}(t_r) P_{Al_A}(t_r)\right\}\nonumber\\
-&&\times \frac{\left< \left[P_{Al_A}(t_r)-c_{Al_A} \right] D(t_r-b_{Al_A}), -\left[P_{Al_A}(t_r)-c_{Al_A} \right] Da_{Al_A}, 1\right>}{P_{Al_A}(t_r)(1-c_{Al_A})},
-\end{eqnarray}
-where $u_{X^*l}$, $u_{X^*p}$, $u_{Al_A}$ and $u_{Ap_A}$ take value $0$ for an incorrect answer and  $1$ for a correct answer to each item $l, p \in \{1, 2, \dots k^*\}$, $l_A, p_A \in \{1, 2, \dots k_A\}$. As such, 
-\begin{equation}
-\label{eq6}
-\mathrm{Pr} \left[\left( \sum_{p=1}^k u_{Xp}\right)=x^*, u_{Xl}=1 |\boldsymbol\alpha_P, \theta_P=t_r \right]
-\end{equation}
-is the probability to achieve score $x^*$ while answering item $l$ correctly for the ability $\theta_P=t_r$. By Bayes theorem we then have
-\begin{eqnarray}
-\label{eq7}
-&&\mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^*, u_{X^*l}=1 |\boldsymbol\alpha_X, \theta_P=t_r\right] =\nonumber\\
-&&\mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^* |\boldsymbol\alpha_X, \theta_P=t_r, u_{X^*l}=1\right] \times \mathrm{Pr} \left[ u_{X^*l}=1 |\boldsymbol\alpha_X, \theta_P=t_r\right].
-\end{eqnarray}
-From Equation~\ref{eq1} it follows that 
-\begin{equation}
-\label{eq8}
-\mathrm{Pr} \left[ u_{X^*l}=1 |\boldsymbol\alpha, \theta_P=t_r\right]=P_{X^*l}(t_r)
-\end{equation}
-and we note that 
-\begin{equation}
-\label{eq9}
-\mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^* |\boldsymbol\alpha, \theta_P=t_r, u_{X^*l}=1\right] 
-\end{equation}
-can be found with the algorithm in \citet{LordWingersky1984} by fixing the probability to answer item $l$ correctly to 1. 
+where $\frac{\partial (\boldsymbol\beta_X^*, \boldsymbol\beta_{A_P})'}{\partial \boldsymbol \alpha_X}$ 
+is a $(k+1) \times 3k$ matrix of partial derivatives with $1\times3$ vector entries $\frac{\partial \beta_{X^*,x^*}}{\partial \boldsymbol \alpha_{Xl}}$  and $\frac{\partial \beta_{A_P,a}}{\partial \boldsymbol \alpha_{l_A}}$, $x^* \in \{0, 1, \dots, k^*\}$, $l \in \{1, 2, \dots, k^*\}$, $a \in \{0, 1, \dots, k_A\}$, $l_A \in \{1, 2, \dots, k_A\}$ of the same form as those in \citet{Ogasawara2003}.
+
+%, such that
+%\begin{eqnarray}
+%\label{eq4}
+%&&\frac{\partial \beta_{X^*,x^*}}{\partial \boldsymbol \alpha_{Xl}}
+%=\frac{\partial }{\partial \boldsymbol \alpha_{Xl}}\sum_{r=1}^R \beta_{X^*,x^*}(t_r)W(t_r) \nonumber\\
+%&&=\sum_{r=1}^R W(t_r) \left\{ \mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^*, u_{X^*l}=1 |\boldsymbol\alpha_X, \theta_P=t_r \right] - \beta_{X^*, x^*}(t_r) P_{X^*l}(t_r)\right\}\nonumber\\
+%&&\times \frac{\left< \left[P_{X^*l}(t_r)-c_{X^*l} \right] D(t_r-b_{X^*l}), -\left[P_{X^*l}(t_r)-c_{X^*l} \right] Da_{X^*l}, 1\right>}{P_{X^*l}(t_r)(1-c_{X^*l})},
+%\end{eqnarray}
+%and 
+%\begin{eqnarray}
+%\label{eq5}
+%&&\frac{\partial \beta_{A_P,a}}{\partial \boldsymbol \alpha_{Xl_A}}
+%=\frac{\partial }{\partial \boldsymbol \alpha_{Xl_A}}\sum_{r=1}^R \beta_{A_P,a}(t_r)W(t_r) \nonumber\\
+%&&=\sum_{r=1}^R W(t_r)\left\{ \mathrm{Pr} \left[\left( \sum_{p_A=1}^{k_A} u_{Ap_A}\right)=a, u_{Al_A}=1 |\boldsymbol\alpha_X, \theta_P=t_r \right] - \beta_{A_P, a}(t_r) P_{Al_A}(t_r)\right\}\nonumber\\
+%&&\times \frac{\left< \left[P_{Al_A}(t_r)-c_{Al_A} \right] D(t_r-b_{Al_A}), -\left[P_{Al_A}(t_r)-c_{Al_A} \right] Da_{Al_A}, 1\right>}{P_{Al_A}(t_r)(1-c_{Al_A})},
+%\end{eqnarray}
+%where $u_{X^*l}$, $u_{X^*p}$, $u_{Al_A}$ and $u_{Ap_A}$ take value $0$ for an incorrect answer and  $1$ for a correct answer to each item $l, p \in \{1, 2, \dots k^*\}$, $l_A, p_A \in \{1, 2, \dots k_A\}$. As such, 
+%\begin{equation}
+%\label{eq6}
+%\mathrm{Pr} \left[\left( \sum_{p=1}^k u_{Xp}\right)=x^*, u_{Xl}=1 |\boldsymbol\alpha_P, \theta_P=t_r \right]
+%\end{equation}
+%is the probability to achieve score $x^*$ while answering item $l$ correctly for the ability $\theta_P=t_r$. By Bayes theorem we then have
+%\begin{eqnarray}
+%\label{eq7}
+%&&\mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^*, u_{X^*l}=1 |\boldsymbol\alpha_X, \theta_P=t_r\right] =\nonumber\\
+%&&\mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^* |\boldsymbol\alpha_X, \theta_P=t_r, u_{X^*l}=1\right] \times \mathrm{Pr} \left[ u_{X^*l}=1 |\boldsymbol\alpha_X, \theta_P=t_r\right].
+%\end{eqnarray}
+%From Equation~\ref{eq1} it follows that 
+%\begin{equation}
+%\label{eq8}
+%\mathrm{Pr} \left[ u_{X^*l}=1 |\boldsymbol\alpha, \theta_P=t_r\right]=P_{X^*l}(t_r)
+%\end{equation}
+%and we note that 
+%\begin{equation}
+%\label{eq9}
+%\mathrm{Pr} \left[\left( \sum_{p=1}^{k^*} u_{X^*p}\right)=x^* |\boldsymbol\alpha, \theta_P=t_r, u_{X^*l}=1\right] 
+%\end{equation}
+%can be found with the algorithm in \citet{LordWingersky1984} by fixing the probability to answer item $l$ correctly to 1. 
 
 Since Equation~\ref{eq3} defines the asymptotic distribution of the score probabilities the results can be directly applied in the kernel equating framework by the derivations provided in \citet{davihollanthayer2004}.
 

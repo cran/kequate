@@ -112,6 +112,8 @@ An S4 object of class 'keout' which includes the following slots (accessed by us
 }
 \references{
 von Davier, A.A., Holland, P.W., Thayer, D.T. (2004). \emph{The Kernel Method of Test Equating.} Springer-Verlag New York.
+
+Ogasawara, H. (2003). Asymptotic standard errors of IRT observed-score equating methods. \emph{Psychometrika}, \bold{68(2)}, 193-211.
 }
 \author{
 \email{bjorn.andersson@statistik.uu.se}\cr

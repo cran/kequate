@@ -30,6 +30,11 @@ Test data often consists of data at the individual level, i.e. there is a data f
 \value{
 A data frame containing the score values and the frequencies associated with each score value/score value combination, sorted in the manner appropriate for usage with functions glm and kequate.
 }
+
+\references{
+Andersson, B., Branberg, K., Wiberg, M. (2013). Performing the Kernel Method of Test Equating with the Package \bold{kequate}. \emph{Journal of Statistical Software}, \bold{55(6)}, 1--25. URL \url{http://www.jstatsoft.org/v55/i06/}
+}
+
 \author{
 \email{bjorn.andersson@statistik.uu.se}\cr
 \email{kenny.branberg@stat.umu.se}\cr
