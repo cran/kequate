@@ -1,0 +1,6 @@
+Changes in version: kequate_1.4.0
+
+* Added IRT-OSE for the NEAT PSE design to function irtose(). The equating coefficients available in equateIRT are used.
+* The package imports equateIRT.
+* Speed improvements to IRT-OSE SEE calculations.
+* Various vignette typos and errors fixed.

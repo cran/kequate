@@ -2,7 +2,7 @@ setClass("cdist", representation(est1="matrix", est2="matrix", obs1="matrix", ob
 setClass("SEEvect", representation(SEEYx="matrix", SEEXy="matrix", SEEYxLIN="matrix", SEEXyLIN="matrix"))
 setClass("SEEDout", representation(SEED="data.frame", SEEvect="SEEvect", hlin="data.frame"))
 setClass("kedist", representation(cdfx="numeric", cdfy="numeric", r="numeric", s="numeric"))
-setClass("keout", representation(Cr="matrix", Cs="matrix", Cp="matrix", Cq="matrix", coveqYx="matrix", SEEvect="SEEvect", Pest="matrix", Pobs="matrix", Qest="matrix", Qobs="matrix", scores="list", linear="logical", PRE="data.frame", h="data.frame", kernel="character", type="character", equating="data.frame", irt="list", see="character", replications="numeric"))
+setClass("keout", representation(Cr="matrix", Cs="matrix", Cp="matrix", Cq="matrix", coveqYx="matrix", pdereqYx="matrix", SEEvect="SEEvect", Pest="matrix", Pobs="matrix", Qest="matrix", Qobs="matrix", scores="list", linear="logical", PRE="data.frame", h="data.frame", kernel="character", type="character", equating="data.frame", irt="list", see="character", replications="numeric"))
 setClass("genseed", representation(out="data.frame"))
 
 setMethod("plot", signature(x="keout"), function(x){
@@ -192,7 +192,7 @@ setMethod("getSeeirt","keout",
 
 #adjust the covariance matrix of the item parameters according to the parametrization used
 adjltm <- function(mat, pars, design, model){
-  if(design=="CE"){
+  if(design=="CE" || design=="PSE"){
     if(model=="2pl"){
       pderltmP <- matrix(0, nrow=2*(length(pars$ax)+length(pars$aa)), ncol=2*(length(pars$ax)+length(pars$aa)))
       
@@ -473,6 +473,30 @@ dFdr<-function(r, h, var, mean, fprim, eqx, x, kernel, slog, bunif, altopt=FALSE
 return(dFdrest)									#We obtain a J x J matrix of derivatives evaluated at each value of eqx.
 }
 
+#calculate the equating coefficients
+# eqcoefficients <- function(irt1, irt2, x, y, a, type="MM"){
+#   kx <- length(x)
+#   ky <- length(y)
+#   ka <- length(a)
+#   if(type=="MM"){
+#     if(is(irt1)=="rasch" && is(irt2)=="rasch"){
+#       betaB <- sum(coef(irt2)[(kx+1):(kx+ka),1])/sum(coef(irt1)[(ky+1):(ky+ka),1])
+#       return(betaB)
+#     }      
+#     if(is(irt1)=="ltm" && is(irt2)=="ltm"){
+#       betaA <- sum(coef(irt2)[(kx+1):(kx+ka),2])/sum(coef(irt1)[(ky+1):(ky+ka),2])
+#       betaB <- mean(coef(irt1)[(kx+1):(kx+ka),1])-betaA*mean(coef(irt2)[(kx+1):(kx+ka),1])
+#       return(c(betaA, betaB))
+#     }      
+#     if(is(irt1)=="tpm" && is(irt2)=="tpm"){
+#       betaA <- sum(coef(irt2)[(kx+1):(kx+ka),3])/sum(coef(irt1)[(ky+1):(ky+ka),3])
+#       betaB <- mean(coef(irt1)[(kx+1):(kx+ka),2])-betaA*mean(coef(irt2)[(kx+1):(kx+ka),2])
+#       return(c(betaA, betaB))
+#     }    
+#   }
+#   else return()
+# }
+
 #Let's say we want to equate X to Y. cdf=estimated
 #cdf for test X, vector w/ J entries. r=estimated
 #score probabilities for test Y. We specify mean
@@ -563,11 +587,11 @@ eqinvCE<-function(cdf, t, x, a, var, mean, h, kernel, slog, bunif, smoothed=TRUE
       cdftemp-u
     }
     if(smoothed==FALSE || IRT==TRUE){
-      checkeq<-tryCatch(uniroot(ggg, c(minx-100, maxx+100), tol=0.000001, t, mean, var, h, u, a, kernel, slog, bunif), error=function(err) stop("Could not calculate equating function, likely due to sparse data. Try values of hx and hy that are equal, or try imputing the data or use pre-smoothing."))
+      checkeq<-tryCatch(uniroot(ggg, c(minx-1000, maxx+1000), tol=0.000001, t, mean, var, h, u, a, kernel, slog, bunif), error=function(err) stop("Could not calculate equating function, likely due to sparse data. Try values of hx and hy that are equal, or try imputing the data or use pre-smoothing."))
       eqf[i]<-checkeq$root
     }
     else
-      eqf[i]<-uniroot(ggg, c(minx-100, maxx+100), tol=0.000001, t, mean, var, h, u, a, kernel, slog, bunif)$root
+      eqf[i]<-uniroot(ggg, c(minx-1000, maxx+1000), tol=0.000001, t, mean, var, h, u, a, kernel, slog, bunif)$root
   }
   return(eqf)
 }
@@ -617,7 +641,7 @@ genseed<-function(in1, in2, linear=FALSE){
     }
 }
 
-irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="analytical", replications=50, kernel="gaussian", h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, wpen=0.5, linear=FALSE, slog=1, bunif=1, altopt=FALSE){
+irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="analytical", replications=50, kernel="gaussian", h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, wpen=0.5, linear=FALSE, slog=1, bunif=1, altopt=FALSE, wS=0.5, eqcoef="mean-mean", robust=FALSE){
   
   #P - object from ltm with IRT model for group P, where the first items are main test, the last are the anchor test OR a matrix of responses w/out missing values, rows are individuals, columns are items, the main test first, then the anchor test
   #Q - equivalent to P, for group Q
@@ -626,6 +650,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
   #a - score points test A
   #qpoints - quadrature points to be used, if not specified defaults to the quadrature points used in the IRT model 
   #model - IRT model, "1pl", "2pl", "3pl" (start w/ 2pl)
+  #eqcoef - (PSE only) denotes the method used estimating equating coefficients, "mean-mean", "mean-sigma", "mean-gmean", "Haebara", "Stocking-Lord"
   #see kequate() for rest args
   if(design=="CE"){
     if(model=="2pl"){
@@ -786,7 +811,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
     }
     
     if(missing(qpoints))
-      qpoints <- ltmP$GH$Z[,2]
+      qpoints <- -ltmP$GH$Z[,2]
     
     if(model=="1pl"){
       irtx <- probpl(qpoints, bx, model)
@@ -866,7 +891,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
         haQ<-hlin$haQlin
     }
     else{
-      if(h$hxP==0)
+      if(h$hxP==0){
         if(altopt)
           hxP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
       else{
@@ -877,7 +902,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
-      if(h$hyQ==0)
+      } else{
+        hxP <- h$hxP
+      }
+      if(h$hyQ==0){
         if(altopt)
           hyQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
       else{
@@ -888,7 +916,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
-      if(h$haP==0)
+      } else{
+        hyQ <- h$hyQ
+      }
+      if(h$haP==0){
         if(altopt)
           haP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varaP)
       else{
@@ -899,7 +930,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
-      if(h$haQ==0)
+      } else{
+        haP <- h$haP
+      }
+      if(h$haQ==0){
         if(altopt)
           haQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(varaQ)
       else{
@@ -910,12 +944,16 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
+      }
+      else{
+        haQ <- h$haQ
+      }
+    }
       hxPlin<-as.numeric(1000*sqrt(varx))
       hyQlin<-as.numeric(1000*sqrt(vary))
       haPlin<-as.numeric(1000*sqrt(varaP))
       haQlin<-as.numeric(1000*sqrt(varaQ))
-    }
-    
+
     if(see=="bootstrap"){
       if(model=="2pl"){
         bootsee <- matrix(0, nrow=replications, ncol=length(x))
@@ -974,8 +1012,8 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
         pderAP <- pderpl(irtaP, qpoints, baP, model, a=aaP)
         pderY <- pderpl(irty, qpoints, by, model, a=ay)
         pderAQ <- pderpl(irtaQ, qpoints, baQ, model, a=aaQ)
-        covalphaP <- vcov.ltm(ltmP)
-        covalphaQ <- vcov.ltm(ltmQ)
+        covalphaP <- vcov.ltm(ltmP, robust=robust)
+        covalphaQ <- vcov.ltm(ltmQ, robust=robust)
         adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, aa=aaP, bxltm=bxltm, baltm=baPltm), design, model="2pl")
         adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, aa=aaQ, bxltm=byltm, baltm=baQltm), design, model="2pl")
       }
@@ -1158,14 +1196,15 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
     #print(JeYCE)
     #print(Jalpha)
     #print(c(rP, tP, sQ, tQ))
-    #return(sqrt(diag(t(Jalpha) %*% cholalphaPQ %*% t(cholalphaPQ) %*% Jalpha)))
+    #print(sqrt(diag(t(Jalpha) %*% t(cholalphaPQ) %*% cholalphaPQ %*% Jalpha)))
     #SEEYx <- numeric(length(x))
     #SEEYxmat <- t(JeYCE) %*% Jalpha %*% cholalphaPQ %*% t
-    coveqYx <- (JeYCE %*% t(Jalpha) %*% t(cholalphaPQ) %*% cholalphaPQ %*% Jalpha %*% t(JeYCE))
+    pdereqYx <- JeYCE %*% t(Jalpha)
+    coveqYx <- pdereqYx %*% t(cholalphaPQ) %*% cholalphaPQ %*% t(pdereqYx)
     #return(eYCEeAx)
     output<-data.frame(eqYx=eYCEeAx, SEEYx=sqrt(diag(coveqYx)))
     #return(list(equating=output, coveqYx=coveqYx)) 
-    out<-new("keout", coveqYx=coveqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE CE", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
+    out<-new("keout", coveqYx=coveqYx, pdereqYx=pdereqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE CE", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
     return(out)
     #SEEYxmat <- 
     #SEEYxmat[,1:dim(Up)[2]] <- (HqprimeY/GprimeY)*(1/HpprimeA)*(dFdrPeA%*%Up-dHpdtPeA%*%Vp)                                            #Fill matrix
@@ -1228,7 +1267,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
         }
       }
       if(missing(qpoints))
-        qpoints <- ltmP$GH$Z[,2]
+        qpoints <- -ltmP$GH$Z[,2]
       irtx <- probpl(qpoints, bx, model, a=ax)
       irty <- probpl(qpoints, by, model, a=ay)
     }
@@ -1292,11 +1331,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
         }
       }
       if(missing(qpoints))
-        qpoints <- ltmP$GH$Z[,2]
+        qpoints <- -ltmP$GH$Z[,2]
       irtx <- probpl(qpoints, bx, a=ax, c=cx)
       irty <- probpl(qpoints, by, a=ay, c=cy)
     }
-
      if(see=="bootstrap"){
       if(model=="2pl"){
         bootsee <- matrix(0, nrow=replications, ncol=length(x))
@@ -1402,8 +1440,8 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       if(model=="2pl"){
         pderX <- pderpl(irtx, qpoints, bx, model, a=ax)
         pderY <- pderpl(irty, qpoints, by, model, a=ay)
-        covalphaP <- vcov.ltm(ltmP)
-        covalphaQ <- vcov.ltm(ltmQ)
+        covalphaP <- vcov.ltm(ltmP, robust=robust)
+        covalphaQ <- vcov.ltm(ltmQ, robust=robust)
         adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, bxltm=bxltm), design, model="2pl")
         adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, bxltm=byltm), design, model="2pl")
       }
@@ -1416,8 +1454,11 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
         adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, bxltm=byltm), design, model="3pl")
       }
     }
-    r <- LordWW(irtx, qpoints)
-    s <- LordWW(irty, qpoints)
+    if(model %in% c("1pl", "2pl", "3pl")){
+      r <- LordWW(irtx, qpoints)
+      s <- LordWW(irty, qpoints)
+    }
+    
     if(kernel=="uniform"){
       ulimit<-(1/(2*bunif*(1-0.61803)))
       KPEN<-0
@@ -1450,6 +1491,8 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
             hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
+      } else{
+        hx <- h$hx
       }
       if(h$hy==0){
         if(altopt){
@@ -1462,10 +1505,375 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
             hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
+      } else{
+        hy <- h$hy
       }
     }
     
     cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)     							#Continuize the estimated cdf:s for X and Y.
+    cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
+    
+    eqYx<-eqinvCE(cdfx, s, x, y, vary, meany, hy, kernel, slog, bunif)  							#Calculate the equated score values.
+    
+    PREYx<-PREp(eqYx, y, r, s)
+    PRE<-data.frame(PREYx)
+    h<-data.frame(hx, hy)
+    
+    #if(irtx!=0 && irty!=0){
+    #  irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
+    #}
+    
+    gprimeY<-densityeq(s, hy, vary, meany, eqYx, y, kernel, slog, bunif)							#G' for eY
+    fprimeY<-densityeq(r, hx, varx, meanx, x, x, kernel, slog, bunif)							#F' for eY
+    #gprimeX<-densityeq(s, hy, vary, meany, y, y)
+    #fprimeX<-densityeq(r, hx, varx, meanx, eqXy, x)
+    
+    if(altopt){
+      altfprim <- altoptdensity(r, hx, varx, meanx, x, x)
+      altgprim <- altoptdensity(s, hy, vary, meanx, eqYx, y)
+    }
+    if(altopt){
+      dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif, altopt=altopt, altfprim=altfprim)						#Matrices of derivatives. JxJ.
+      dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif, altopt=altopt, altfprim=altgprim)	
+    } else{
+      dFdreYEG<-dFdr(r, hx, varx, meanx, fprimeY, x, x, kernel, slog, bunif)						#Matrices of derivatives. JxJ.
+      dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif)						#KxK
+    }
+    
+    JeY <- matrix(0, nrow=length(x), ncol=(length(x)+length(y)))
+    JeY[,1:(length(x))] <- dFdreYEG
+    JeY[,(length(x)+1):(length(x)+length(y))] <- -dGdseYEG
+    JeY <- (1/gprimeY)*JeY
+    cholalphaPQ <- matrix(0, nrow=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]), ncol=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]))
+    cholalphaPQ[1:dim(adjcovalphaP)[1],1:dim(adjcovalphaP)[1]] <- chol(adjcovalphaP)
+    cholalphaPQ[(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]),(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1])]<- chol(adjcovalphaQ)
+    
+    kX <- length(x)-1
+    kY <- length(y)-1
+    
+    if(model=="2pl"){
+      Jalpha <- matrix(0, nrow=2*(kY+kX), ncol=(kX+kY+2))
+      Jalpha[1:(2*kX), 1:(kX+1)] <- pderX
+      Jalpha[(2*kX+1):(2*kX+2*kY),(kX+2):(kX+kY+2)] <- pderY    
+    }
+    if(model=="3pl"){
+      Jalpha <- matrix(0, nrow=3*(kY+kX), ncol=(kX+kY+2))
+      Jalpha[1:(3*kX), 1:(kX+1)] <- pderX
+      Jalpha[(3*kX+1):(3*kX+3*kY),(kX+2):(kX+kY+2)] <- pderY
+    }
+    
+    pdereqYx <- JeY %*% t(Jalpha)
+    coveqYx <- pdereqYx %*% t(cholalphaPQ) %*% cholalphaPQ %*% t(pdereqYx)
+    #return(eYCEeAx)
+    output <- data.frame(eqYx=eqYx, SEEYx=sqrt(diag(coveqYx)))
+    #return(list(equating=output, coveqYx=coveqYx)) 
+    out <- new("keout", coveqYx=coveqYx, pdereqYx=pdereqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=r, cdfx=cdfx), Y=data.frame(y, s=s, cdfy=cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE EG", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
+    return(out)
+    
+  } 
+  if(design=="PSE"){
+    if(model=="2pl"){
+      if("ltm" %in% class(P)){
+        bx <- as.numeric(coef.ltm(P)[,1])[1:(length(x)-1)]
+        baP <- as.numeric(coef.ltm(P)[,1])[(length(x)):((length(x)+length(a)-2))]
+        ax <- as.numeric(coef.ltm(P)[,2])[1:(length(x)-1)]
+        aaP <- as.numeric(coef.ltm(P)[,2])[(length(x)):((length(x)+length(a)-2))]
+        if(P$IRT.param){
+          bxltm <- -ax*bx
+          baPltm <- -aaP*baP
+        } else{
+          bxltm <- bx
+          baPltm <- baP
+          bx <- -bxltm/ax
+          baP <- -baPltm/aaP
+        }
+        N <- dim(P$X)[1]
+        ltmP <- P
+        P <- ltmP$X
+      } else{
+        if(is.matrix(P)){
+          if((length(a)+length(x)-2) != ncol(P))
+            return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+          ltmP <- ltm(P ~ z1, IRT.param=FALSE)
+          bx <- as.numeric(coef.ltm(ltmP)[,1])[1:(length(x)-1)]
+          baP <- as.numeric(coef.ltm(ltmP)[,1])[(length(x)):((length(x)+length(a)-2))]
+          ax <- as.numeric(coef.ltm(ltmP)[,2])[1:(length(x)-1)]
+          aaP <- as.numeric(coef.ltm(ltmP)[,2])[(length(x)):((length(x)+length(a)-2))]
+          bxltm <- bx
+          baPltm <- baP
+          bx <- -bxltm/ax
+          baP <- -baPltm/aaP
+          N <- dim(P)[1]
+        } else{
+          return("Unsupported input. P must be either an object created by the package ltm or a matrix of responses.")
+        }
+      }
+      
+      if("ltm" %in% class(Q)){
+        by <- as.numeric(coef.ltm(Q)[,1])[1:(length(y)-1)]
+        baQ <-  as.numeric(coef.ltm(Q)[,1])[(length(y)):((length(y)+length(a)-2))]
+        ay <- as.numeric(coef.ltm(Q)[,2])[1:(length(y)-1)]
+        aaQ <- as.numeric(coef.ltm(Q)[,2])[(length(y)):((length(y)+length(a)-2))]
+        if(Q$IRT.param){
+          byltm <- -ay*by
+          baQltm <- -aaQ*baQ
+        } else{
+          byltm <- by
+          baQltm <- baQ
+          by <- -byltm/ay
+          baQ <- -baQltm/aaQ
+        }
+        M <- dim(Q$X)[1]
+        ltmQ <- Q
+        Q <- ltmQ$X
+      } else{
+        if(is.matrix(Q)){
+          if((length(a)+length(y)-2) != ncol(Q))
+            return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+          ltmQ <- ltm(Q ~ z1, IRT.param=FALSE)
+          by <- as.numeric(coef.ltm(ltmQ)[,1])[1:(length(y)-1)]
+          baQ <-  as.numeric(coef.ltm(ltmQ)[,1])[(length(y)):((length(y)+length(a)-2))]
+          ay <- as.numeric(coef.ltm(ltmQ)[,2])[1:(length(y)-1)]
+          aaQ <- as.numeric(coef.ltm(ltmQ)[,2])[(length(y)):((length(y)+length(a)-2))]
+          byltm <- by
+          baQltm <- baQ
+          by <- -byltm/ay
+          baQ <- -baQltm/aaQ
+          M <- dim(Q)[1]
+        } else{
+          return("Unsupported input. Q must be either an object created by the package ltm or a matrix of responses.")
+        }
+      }
+    }
+    
+    if(model=="3pl"){
+      if("tpm" %in% class(P)){
+        cx <- as.numeric(coef.tpm(P)[,1])[1:(length(x)-1)]
+        caP <- as.numeric(coef.tpm(P)[,1])[(length(x)):((length(x)+length(a)-2))]
+        bx <- as.numeric(coef.tpm(P)[,2])[1:(length(x)-1)]
+        baP <-  as.numeric(coef.tpm(P)[,2])[(length(x)):((length(x)+length(a)-2))]
+        ax <- as.numeric(coef.tpm(P)[,3])[1:(length(x)-1)]
+        aaP <- as.numeric(coef.tpm(P)[,3])[(length(x)):((length(x)+length(a)-2))]
+        if(P$IRT.param){
+          bxltm <- -ax*bx
+          baPltm <- -aaP*baP
+        } else{
+          bxltm <- bx
+          baPltm <- baP
+          bx <- -bxltm/ax
+          baP <- -baPltm/aaP
+        }
+        N <- dim(P$X)[1]
+        ltmP <- P
+        P <- ltmP$X
+      } else{
+        if(is.matrix(P)){
+          if((length(a)+length(x)-2) != ncol(P))
+            return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+          ltmP <- ltm(P ~ z1, IRT.param=FALSE)
+          cx <- as.numeric(coef.tpm(ltmP)[,1])[1:(length(x)-1)]
+          caP <- as.numeric(coef.tpm(ltmP)[,1])[(length(x)):((length(x)+length(a)-2))]
+          bx <- as.numeric(coef.tpm(ltmP)[,2])[1:(length(x)-1)]
+          baP <- as.numeric(coef.tpm(ltmP)[,2])[(length(x)):((length(x)+length(a)-2))]
+          ax <- as.numeric(coef.tpm(ltmP)[,3])[1:(length(x)-1)]
+          aaP <- as.numeric(coef.tpm(ltmP)[,3])[(length(x)):((length(x)+length(a)-2))]
+          bxltm <- bx
+          baPltm <- baP
+          bx <- -bxltm/ax
+          baP <- -baPltm/aaP
+          N <- dim(P)[1]
+        } else{
+          return("Unsupported input. P must be either an object created by the package ltm or a matrix of responses.")
+        }
+      }
+      
+      if("tpm" %in% class(Q)){
+        cy <- as.numeric(coef.tpm(Q)[,1])[1:(length(y)-1)]
+        caQ <- as.numeric(coef.tpm(Q)[,1])[(length(y)):((length(y)+length(a)-2))]
+        by <- as.numeric(coef.tpm(Q)[,2])[1:(length(y)-1)]
+        baQ <-  as.numeric(coef.tpm(Q)[,2])[(length(y)):((length(y)+length(a)-2))]
+        ay <- as.numeric(coef.tpm(Q)[,3])[1:(length(y)-1)]
+        aaQ <- as.numeric(coef.tpm(Q)[,3])[(length(y)):((length(y)+length(a)-2))]
+        if(Q$IRT.param){
+          byltm <- -ay*by
+          baQltm <- -aaQ*baQ
+        } else{
+          byltm <- by
+          baQltm <- baQ
+          by <- -byltm/ay
+          baQ <- -baQltm/aaQ
+        }
+        M <- dim(Q$X)[1]
+        ltmQ <- Q
+        Q <- ltmQ$X
+      } else{
+        if(is.matrix(Q)){
+          if((length(a)+length(y)-2) != ncol(Q))
+            return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+          ltmQ <- tpm(Q, IRT.param=FALSE)
+          cy <- as.numeric(coef.tpm(ltmQ)[,1])[1:(length(y)-1)]
+          caQ <- as.numeric(coef.tpm(ltmQ)[,1])[(length(y)):((length(y)+length(a)-2))]
+          by <- as.numeric(coef.tpm(ltmQ)[,2])[1:(length(y)-1)]
+          baQ <-  as.numeric(coef.tpm(ltmQ)[,2])[(length(y)):((length(y)+length(a)-2))]
+          ay <- as.numeric(coef.tpm(ltmQ)[,3])[1:(length(y)-1)]
+          aaQ <- as.numeric(coef.tpm(ltmQ)[,3])[(length(y)):((length(y)+length(a)-2))]
+          byltm <- by
+          baQltm <- baQ
+          by <- -byltm/ay
+          baQ <- -baQltm/aaQ
+          M <- dim(Q)[1]
+        } else{
+          return("Unsupported input. Q must be either an object created by the package ltm or a matrix of responses.")
+        }
+      }
+      
+    }
+    
+    if(missing(qpoints))
+      qpoints <- -ltmP$GH$Z[,2]
+    
+    if(model=="1pl"){
+      irtpars <- list(bx=bx, by=by, baP=baP, baQ=baQ)
+      irtrP <- probpl(qpoints, bx, model)
+      irtrQ <- probpl(betaA*qpoints+betaB, bx, model)
+      irtsQ <- probpl(qpoints, by, model)
+      irtsP <- probpl(betaA*qpoints+betaB, by, model)
+      #pderX <- pderpl(irtx, qpoints, bx, model)
+      #pderAP <- pderpl(irtaP, qpoints, baP, model)
+      #pderY <- pderpl(irty, qpoints, by, model)
+      #pderAQ <- pderpl(irtaQ, qpoints, baQ, model)
+    }
+    if(model=="2pl"){
+      ltmPcf <- ltmP$coefficients
+      ltmPcov <- vcov.ltm(ltmP, robust=robust)
+      ltmQcf <- ltmQ$coefficients
+      ltmQcov <- vcov.ltm(ltmQ, robust=robust)
+      
+      dimnames(ltmPcf)[[1]] <- c(sprintf("X%03d", 1:(length(x)-1)), sprintf("A%03d", 1:(length(a)-1)))
+      dimnames(ltmQcf)[[1]] <- c(sprintf("Y%03d", 1:(length(y)-1)), sprintf("A%03d", 1:(length(a)-1)))
+      avoidprint <- capture.output({modPQ <- modIRT(coef=list(test1=ltmPcf, test2=ltmQcf), var=list(test1=ltmPcov, test2=ltmQcov), names=paste("test", 1:2, sep=""), ltparam=TRUE)})
+      eqc <- direc(modPQ[2], modPQ[1], method=eqcoef)
+      
+      betaA <- eqc$A
+      betaB <- eqc$B
+      
+      irtpars <- list(ax=ax, ay=ay, aaP=aaP, aaQ=aaQ, bx=bx, by=by, baP=baP, baQ=baQ)
+      irtrP <- probpl(qpoints, bx, model, a=ax)
+      irtrQ <- probpl(betaA*qpoints+betaB, bx, model, a=ax)
+      irtsQ <- probpl(qpoints, by, model, a=ay)
+      irtsP <- probpl((qpoints-betaB)/betaA, by, model, a=ay)
+      #irtaQ <- probpl(qpoints, baQ, model, a=aaQ)
+      #pderX <- pderpl(irtx, qpoints, bx, model, a=ax)
+      #pderAP <- pderpl(irtaP, qpoints, baP, model, a=aaP)
+      #pderY <- pderpl(irty, qpoints, by, model, a=ay)
+      #pderAQ <- pderpl(irtaQ, qpoints, baQ, model, a=aaQ)
+      
+      covalphaP <- ltmPcov
+      covalphaQ <- ltmQcov
+      adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, aa=aaP, bxltm=bxltm, baltm=baPltm), "PSE", model="2pl")
+      adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, aa=aaQ, bxltm=byltm, baltm=baQltm), "PSE", model="2pl")
+      
+    }
+    if(model=="3pl"){
+      ltmPcf <- ltmP$coefficients
+      ltmPcov <- vcov(ltmP)
+      ltmQcf <- ltmQ$coefficients
+      ltmQcov <- vcov(ltmQ)
+      
+      dimnames(ltmPcf)[[1]] <- c(sprintf("X%03d", 1:(length(x)-1)), sprintf("A%03d", 1:(length(a)-1)))
+      dimnames(ltmQcf)[[1]] <- c(sprintf("Y%03d", 1:(length(y)-1)), sprintf("A%03d", 1:(length(a)-1)))
+      avoidprint <- capture.output({modPQ <- modIRT(coef=list(test1=ltmPcf, test2=ltmQcf), var=list(test1=ltmPcov, test2=ltmQcov), names=paste("test", 1:2, sep=""), ltparam=TRUE, lparam=TRUE)})
+      eqc <- direc(modPQ[2], modPQ[1], method=eqcoef)
+      
+      betaA <- eqc$A
+      betaB <- eqc$B
+      
+      irtpars <- list(ax=ax, ay=ay, aaP=aaP, aaQ=aaQ, bx=bx, by=by, baP=baP, baQ=baQ, cx=cx, cy=cy, caP=caP, caQ=caQ)
+      irtrP <- probpl(qpoints, bx, a=ax, c=cx)
+      irtrQ <- probpl(betaA*qpoints+betaB, bx, a=ax, c=cx)
+      irtsQ <- probpl(qpoints, by, a=ay, c=cy)
+      irtsP <- probpl((qpoints-betaB)/betaA, by, a=ay, c=cy)
+      
+      covalphaP <- vcov.tpm(ltmP)
+      covalphaQ <- vcov.tpm(ltmQ)
+      adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, aa=aaP, bxltm=bxltm, baltm=baPltm), design, model="3pl")
+      adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, aa=aaQ, bxltm=byltm, baltm=baQltm), design, model="3pl")
+      #irtaQ <- probpl(qpoints, baQ, a=aaQ, c=caQ)
+      #pderX <- pderpl(irtx, qpoints, bx, a=ax, c=cx)
+      #pderAP <- pderpl(irtaP, qpoints, baP, a=aaP, c=caP)
+      #pderY <- pderpl(irty, qpoints, by, a=ay, c=cy)
+      #pderAQ <- pderpl(irtaQ, qpoints, baQ, a=aaQ, c=caQ)
+    }
+    
+    #irtx <- probpl(qpoints, bx, model, a=ax)
+    #irtaP <- probpl(qpoints, baP, model, a=aaP)
+    #irty <- probpl(qpoints, by, model, a=ay)
+    #irtaQ <- probpl(qpoints, baQ, model, a=aaQ)
+    
+    rP <- LordWW(irtrP, qpoints)
+    rQ <- LordWW(irtrQ, qpoints)
+    sQ <- LordWW(irtsQ, qpoints)
+    sP <- LordWW(irtsP, qpoints)
+    
+    r <- wS*rP+(1-wS)*rQ
+    s <- wS*sP+(1-wS)*sQ
+
+    
+    pdermats <- pderrspse(irtpars, x, y, a, irtrP, irtrQ, irtsP, irtsQ, qpoints, eqc, wS, model=model)
+    
+    
+    if(kernel=="uniform"){
+      ulimit<-(1/(2*bunif*(1-0.61803)))
+      KPEN<-0
+    } else ulimit<-4
+    
+    meanx <- x%*%r
+    meany <- y%*%s
+    
+    varx <- (N/(N-1))*(x^2%*%r-meanx^2)
+    vary <- (M/(M-1))*(y^2%*%s-meany^2)
+    
+    if(linear){
+      if(hlin$hxlin==0)
+        hx<-as.numeric(1000*sqrt(varx))
+      else
+        hx<-hlin$hxlin
+      if(hlin$hylin==0)
+        hy<-as.numeric(1000*sqrt(vary))
+      else
+        hy<-hlin$hylin
+    } else{
+      if(h$hx==0){
+        if(altopt){
+          hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+        } else{
+          if(KPEN==0){
+            hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          } else{
+            hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          }
+        }
+      } else{
+        hx <- h$hx
+      }
+      if(h$hy==0){
+        if(altopt){
+          hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+        } else{
+          if(KPEN==0){
+            hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          } else{
+            hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          }
+        }
+      } else{
+        hy <- h$hy
+      }
+    }
+    
+    cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)       						#Continuize the estimated cdf:s for X and Y.
     cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
     
     eqYx<-eqinvCE(cdfx, s, x, y, vary, meany, hy, kernel, slog, bunif)  							#Calculate the equated score values.
@@ -1500,31 +1908,29 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
     JeY[,1:(length(x))] <- dFdreYEG
     JeY[,(length(x)+1):(length(x)+length(y))] <- -dGdseYEG
     JeY <- (1/gprimeY)*JeY
+    #print(JeY)
     cholalphaPQ <- matrix(0, nrow=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]), ncol=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]))
     cholalphaPQ[1:dim(adjcovalphaP)[1],1:dim(adjcovalphaP)[1]] <- chol(adjcovalphaP)
     cholalphaPQ[(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]),(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1])]<- chol(adjcovalphaQ)
     
-    kX <- length(x)-1
-    kY <- length(y)-1
+    #print(pdermats$paXaYbetaAB)
+    #print(pdermats$prPrQsPsQ)
+    #print(pdermats$prSsS)
     
-    if(model=="2pl"){
-      Jalpha <- matrix(0, nrow=2*(kY+kX), ncol=(kX+kY+2))
-      Jalpha[1:(2*kX), 1:(kX+1)] <- pderX
-      Jalpha[(2*kX+1):(2*kX+2*kY),(kX+2):(kX+kY+2)] <- pderY    
-    }
-    if(model=="3pl"){
-      Jalpha <- matrix(0, nrow=3*(kY+kX), ncol=(kX+kY+2))
-      Jalpha[1:(3*kX), 1:(kX+1)] <- pderX
-      Jalpha[(3*kX+1):(3*kX+3*kY),(kX+2):(kX+kY+2)] <- pderY
-    }
-    coveqYx <- (JeY %*% t(Jalpha) %*% t(cholalphaPQ) %*% cholalphaPQ %*% Jalpha %*% t(JeY))
-    #return(eYCEeAx)
+    #plot(sqrt(diag(pdermats$prPrQsPsQ %*% pdermats$paXaYbetaAB %*% t(cholalphaPQ) %*% cholalphaPQ %*% t(pdermats$paXaYbetaAB) %*% t(pdermats$prPrQsPsQ) )))
+    Jalpha <- pdermats$prSsS %*% pdermats$prPrQsPsQ %*% pdermats$paXaYbetaAB
+    pdereqYx <- JeY %*% Jalpha
+    
+    #print(Jalpha)
+    #plot(sqrt(diag(Jalpha %*% t(cholalphaPQ) %*% cholalphaPQ  %*% t(Jalpha))))
+    coveqYx <- pdereqYx %*% t(cholalphaPQ) %*% cholalphaPQ %*% t(pdereqYx)
     output <- data.frame(eqYx=eqYx, SEEYx=sqrt(diag(coveqYx)))
-    #return(list(equating=output, coveqYx=coveqYx)) 
-    out <- new("keout", coveqYx=coveqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=r, cdfx=cdfx), Y=data.frame(y, s=s, cdfy=cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE EG", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
+    #return(list(equating=output, coveqYx=coveqYx))     
+    out <- new("keout", coveqYx=coveqYx, pdereqYx=pdereqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=r, cdfx=cdfx), Y=data.frame(y, s=s, cdfy=cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE PSE", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
     return(out)
-    
-  } else return("Currently only CE and EG have been implemented.")
+  }
+  
+  else return("Currently only CE, PSE and EG have been implemented.")
   
 }
 
@@ -1807,7 +2213,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
         }
       }
       if(missing(qpoints))
-        qpoints <- ltmP$GH$Z[,2]
+        qpoints <- -ltmP$GH$Z[,2]
       irtx <- probpl(qpoints, bx, model, a=ax)
       irty <- probpl(qpoints, by, model, a=ay)
     }
@@ -1871,7 +2277,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
         }
       }
       if(missing(qpoints))
-        qpoints <- ltmP$GH$Z[,2]
+        qpoints <- -ltmP$GH$Z[,2]
       irtx <- probpl(qpoints, bx, a=ax, c=cx)
       irty <- probpl(qpoints, by, a=ay, c=cy)
     }
@@ -3579,13 +3985,42 @@ LordWW <- function(p, qpoints){
     l<-l+1
   }
   #Weight each quadrature point, ~N(0,1) assumption on the ability (from IRT model)
-  for(i in 1:length(qpoints))
-    test[,i,n] <- test[,i,n]*dnorm(qpoints[i])/sum(dnorm(qpoints))
+  test[,,n] <- t(t(test[,,n]) * (dnorm(qpoints)/sum(dnorm(qpoints))))
   
   if(N==1)
     return(test[,,n])
   else
     return(rowSums(test[,,n]))
+}
+
+LordWWc <- function(p, qpoints){
+  if(!is.matrix(p))
+    p<-as.matrix(p)
+  n<-dim(p)[1]
+  N<-dim(p)[2]
+  test<-array(0, c(n+1, N, n))
+  q<-1-p
+  l<-1
+  test[1,,l]<-q[1,]
+  test[2,,l]<-p[1,]
+  testR<-test[1,,l]
+  testR2<-test[2,,l]
+  
+  for(i in 2:n){
+    for(r in 1:(i+1)){
+      if(r==1)
+        testR<-testR*q[i,]
+      if(r>1 && r<(i+1))
+        test[r,,l+1]<-test[r,,l]*q[i,]+test[r-1,,l]*p[i,]
+      if(r==(i+1)){
+        testR2<-testR2*p[i,]
+        test[r,,l+1]<-testR2
+      }
+    }
+    test[1,,l+1]<-testR
+    l<-l+1
+  }
+  return(as.matrix(test[,,n]))
 }
 
 pderpl <- function(irt, qpoints, b, model = "3pl", a = 0, c = 0){
@@ -3599,13 +4034,12 @@ pderpl <- function(irt, qpoints, b, model = "3pl", a = 0, c = 0){
   probs <- matrix(0, ncol = length(irt[1,]), nrow = (length(b)+1))
   #cprobs - probabilities to achieve each score while answering each question correctly, for each ability level
   #probs - probability to achieve each score for each ability level (local equating score probs)
-  for(i in 1:length(qpoints)){
-    probs[,i] <- LordWW(irt[,i], qpoints[i])
-    for(j in 1:length(irt[,1])){
-      input <- as.matrix(irt[,i])
-      input[j, 1] <- 1
-      cprobs[i,j,] <- LordWW(input, qpoints[i])
-    }
+
+  probs <- LordWWc(irt, qpoints)
+  for(j in 1:length(irt[,1])){
+    input <- as.matrix(irt)
+    input[j,] <- 1
+    cprobs[,j,] <- t(LordWWc(input, qpoints))
   }
   #print(cprobs)
   if(model=="1pl"){
@@ -3613,13 +4047,8 @@ pderpl <- function(irt, qpoints, b, model = "3pl", a = 0, c = 0){
     Bx <- matrix(0, nrow=length(b), ncol=length(qpoints))
     #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point
     for(i in 1:(length(b)+1)){
-      for(k in 1:length(qpoints)){
-        for(j in 1:length(b)){
-          Bx[j,k] <- (cprobs[k,j,i] - probs[i,k]) * irt[j,k]
-        }
-        Bx[,k] <- (dnorm(qpoints[k])/(sum(dnorm(qpoints))))*Bx[,k]
-        #Weight each quadrature point under ~N(0,1) assumption
-      }
+      Bx <- (dnorm(qpoints)/(sum(dnorm(qpoints)))) * t(cprobs[,,i] - probs[i,]) * irt
+      #Weight each quadrature point under ~N(0,1) assumption
       pBpalpha[,i] <- rowSums(Bx)
       #Put the partial derivatives for each score value in the final matrix
     }
@@ -3628,19 +4057,15 @@ pderpl <- function(irt, qpoints, b, model = "3pl", a = 0, c = 0){
   if(model=="2pl"){
     pBpalpha <- matrix(0, nrow = 2*length(b), ncol = (length(b)+1))
     #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
-    Bx <- matrix(0, nrow=(length(b)+length(a)), ncol=length(qpoints))
-    #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first b, then a
+    Bx <- matrix(0, nrow=(2*length(b)), ncol=length(qpoints))
+    #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
     for(i in 1:(length(b)+1)){
-      for(k in 1:length(qpoints)){
-        for(j in 1:length(b)){
-          Bx[j,k] <- (cprobs[k,j,i] - probs[i,k]) * irt[j,k] * (-a[j])
-        }
-        for(j in 1:length(a)){
-          Bx[j+length(b),k] <- (cprobs[k,j,i] - probs[i,k]) * irt[j,k] * (qpoints[k] - b[j])
-        }
-        Bx[,k] <- (dnorm(qpoints[k])/(sum(dnorm(qpoints))))*Bx[,k]
-        #Weight each quadrature point under ~N(0,1) assumption
-      }
+      tmat <- cprobs[,,i] - probs[i,]
+      if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+      Bx[1:length(b),] <- t(tmat) * irt  * (-a)
+      Bx[(length(b)+1):(length(b)+length(a)),] <- t(tmat * t(irt) * qpoints) - t(tmat) * irt * b
+      Bx <- t((dnorm(qpoints) / (sum(dnorm(qpoints)))) * t(Bx))
+      #Weight each quadrature point under ~N(0,1) assumption
       pBpalpha[,i] <- rowSums(Bx)
       #Put the partial derivatives for each score value in the final matrix
     }
@@ -3652,25 +4077,410 @@ pderpl <- function(irt, qpoints, b, model = "3pl", a = 0, c = 0){
     Bx <- matrix(0, nrow=(3*length(b)), ncol=length(qpoints))
     #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
     for(i in 1:(length(b)+1)){
-      for(k in 1:length(qpoints)){
-        for(j in 1:length(c)){
-          Bx[j,k] <- (cprobs[k,j,i] - probs[i,k]) * (1/(1-c[j]))
-        }
-        for(j in 1:length(b)){
-          Bx[j+length(c),k] <- (cprobs[k,j,i] - probs[i,k]) * (((irt[j,k] - c[j]) * (-a[j])) / (1-c[j]))
-        }
-        for(j in 1:length(a)){
-          Bx[j+length(c)+length(b),k] <- (cprobs[k,j,i] - probs[i,k])  * (((irt[j,k] - c[j]) * (qpoints[k] - b[j])) / (1-c[j]))
-        }
-        Bx[,k] <- (dnorm(qpoints[k])/(sum(dnorm(qpoints))))*Bx[,k]
-        #Weight each quadrature point under ~N(0,1) assumption
-      }
+      tmat <- cprobs[,,i] - probs[i,]
+      if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+      Bx[1:length(c),] <- t(tmat) * (1/(1-c))
+      Bx[(length(c)+1):(length(c)+length(b)),] <- t(tmat) * (((irt - c) * (-a)) / (1-c))
+      Bx[(length(c)+length(b)+1):(length(c)+length(b)+length(a)),] <- t(tmat * t((irt - c)/ (1-c)) * qpoints) + t(tmat) * (((irt - c) * (-b)) / (1-c)) 
+      Bx <- t((dnorm(qpoints)/(sum(dnorm(qpoints)))) * t(Bx))
+      #Weight each quadrature point under ~N(0,1) assumption
       pBpalpha[,i] <- rowSums(Bx)
       #Put the partial derivatives for each score value in the final matrix
     }
   }
   
   return(pBpalpha)
+}
+
+pderplpse <- function(irt, qpoints, b, pder, model = "3pl", a = 0, c = 0, betaA, betaB){
+  #irt - the probabilities to answer each item (rows) correctly for the quadrature points (columns) considered
+  #qpoints - the quadrature points considered
+  #pder - which partial derivatives to calculate, "rQaX", "sPaY", "rQeqc", "sPeqc"
+  #b - the difficulty parameter for each item
+  #model - "1pl", "2pl" or "3pl"
+  #a - the discrimination parameter for each item
+  #c - the guessing parameter for each item
+  cprobs <- array(0, dim = c(length(irt[1,]), length(b), (length(b)+1)))
+  probs <- matrix(0, ncol = length(irt[1,]), nrow = (length(b)+1))
+  #cprobs - probabilities to achieve each score while answering each question correctly, for each ability level
+  #probs - probability to achieve each score for each ability level (local equating score probs)
+  
+  if(pder=="rQaX"){    
+    probs <- LordWWc(irt, betaA * qpoints + betaB)
+    for(j in 1:length(irt[,1])){
+      input <- as.matrix(irt)
+      input[j,] <- 1
+      cprobs[,j,] <- t(LordWWc(input, betaA * qpoints + betaB))
+    }
+    
+    if(model=="2pl"){
+      pBpalpha <- matrix(0, nrow = 2*length(b), ncol = (length(b)+1))
+      #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
+      Bx <- matrix(0, nrow=(2*length(b)), ncol=length(qpoints))
+      #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
+      for(i in 1:(length(b)+1)){
+        tmat <- cprobs[,,i] - probs[i,]
+        if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+        Bx[1:length(b),] <- t(tmat) * irt  * (-a)
+        Bx[(length(b)+1):(length(b)+length(a)),] <- t(tmat * t(irt) * betaA * qpoints) - t(tmat) * irt * (b - betaB)
+        Bx <- t((dnorm(qpoints) / (sum(dnorm(qpoints)))) * t(Bx))
+        #Weight each quadrature point under ~N(0,1) assumption
+        pBpalpha[,i] <- rowSums(Bx)
+        #Put the partial derivatives for each score value in the final matrix
+      }
+    }
+    
+    if(model=="3pl"){
+      pBpalpha <- matrix(0, nrow = 3*length(b), ncol = (length(b)+1))
+      #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
+      Bx <- matrix(0, nrow=(3*length(b)), ncol=length(qpoints))
+      #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
+      for(i in 1:(length(b)+1)){
+        tmat <- cprobs[,,i] - probs[i,]
+        if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+        Bx[1:length(c),] <- t(tmat) * (1/(1-c))
+        Bx[(length(c)+1):(length(c)+length(b)),] <- t(tmat) * ((irt -  c) * (-a) / (1-c))
+        Bx[(length(c)+length(b)+1):(length(c)+length(b)+length(a)),] <- t(tmat * t((irt - c) / (1-c)) * betaA * qpoints) + t(tmat) * ((irt - c) / (1-c)) * (betaB - b)
+        Bx <- t((dnorm(qpoints) / (sum(dnorm(qpoints)))) * t(Bx))
+        #Weight each quadrature point under ~N(0,1) assumption
+        pBpalpha[,i] <- rowSums(Bx)
+        #Put the partial derivatives for each score value in the final matrix
+      }
+    }
+    
+    return(pBpalpha)
+  }
+  
+  if(pder=="sPaY"){
+    probs <- LordWWc(irt, (qpoints - betaB) / betaA)
+    for(j in 1:length(irt[,1])){
+      input <- as.matrix(irt)
+      input[j,] <- 1
+      cprobs[,j,] <- t(LordWWc(input, (qpoints - betaB) / betaA))
+    }
+    
+    if(model=="2pl"){
+      pBpalpha <- matrix(0, nrow = 2*length(b), ncol = (length(b)+1))
+      #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
+      Bx <- matrix(0, nrow=(2*length(b)), ncol=length(qpoints))
+      #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
+      for(i in 1:(length(b)+1)){
+        tmat <- cprobs[,,i] - probs[i,]
+        if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+        Bx[1:length(b),] <- t(tmat) * irt  * (-a)
+        Bx[(length(b)+1):(length(b)+length(a)),] <- t(tmat * t(irt) * (qpoints / betaA)) + t(tmat) * irt * ((-betaA * b - betaB) / betaA)
+        Bx <- t((dnorm(qpoints) / (sum(dnorm(qpoints)))) * t(Bx))
+        #Weight each quadrature point under ~N(0,1) assumption
+        pBpalpha[,i] <- rowSums(Bx)
+        #Put the partial derivatives for each score value in the final matrix
+      }
+    }
+    
+    if(model=="3pl"){
+      pBpalpha <- matrix(0, nrow = 3*length(b), ncol = (length(b)+1))
+      #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
+      Bx <- matrix(0, nrow=(3*length(b)), ncol=length(qpoints))
+      #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
+      for(i in 1:(length(b)+1)){
+        tmat <- cprobs[,,i] - probs[i,]
+        if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+        Bx[1:length(c),] <- t(tmat) * (1/(1-c))
+        Bx[(length(c)+1):(length(c)+length(b)),] <- t(tmat) * (((irt - c) * (-a)) / (1-c))
+        Bx[(length(c)+length(b)+1):(length(c)+length(b)+length(a)),] <- t(tmat * t((irt - c)/ (1 - c)) * qpoints / betaA) + t(tmat) * ((irt - c) / (1 - c))*((-betaA * b - betaB) / betaA)
+        Bx <- t((dnorm(qpoints) / (sum(dnorm(qpoints)))) * t(Bx))
+        #Weight each quadrature point under ~N(0,1) assumption
+        pBpalpha[,i] <- rowSums(Bx)
+        #Put the partial derivatives for each score value in the final matrix
+      }
+    }
+    return(pBpalpha)
+  }
+  if(pder=="rQeqc"){
+    probs <- LordWWc(irt, betaA * qpoints + betaB)
+    for(j in 1:length(irt[,1])){
+      input <- as.matrix(irt)
+      input[j,] <- 1
+      cprobs[,j,] <- t(LordWWc(input, betaA * qpoints + betaB))
+    }
+    
+    if(model=="2pl"){
+      pBpalpha <- matrix(0, nrow = 2, ncol = (length(b)+1))
+      #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
+      Bx <- matrix(0, nrow=2, ncol=length(qpoints))
+      #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
+      for(i in 1:(length(b)+1)){
+        tmat <- cprobs[,,i] - probs[i,]
+        if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+        Bx[1,] <- colSums(t(tmat * t(irt * a) * qpoints))
+        Bx[2,] <- colSums(t(tmat) * (irt * a))
+        Bx <- t((dnorm(qpoints)/(sum(dnorm(qpoints)))) * t(Bx))
+        pBpalpha[,i] <- rowSums(Bx)
+        #Put the partial derivatives for each score value in the final matrix
+      }
+    }
+    
+    if(model=="3pl"){
+      pBpalpha <- matrix(0, nrow = 2, ncol = (length(b)+1))
+      #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
+      Bx <- matrix(0, nrow=2, ncol=length(qpoints))
+      #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
+      for(i in 1:(length(b)+1)){
+        tmat <- cprobs[,,i] - probs[i,]
+        if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+        Bx <- matrix(0, nrow=2, ncol=length(qpoints))
+        Bx[1,] <- colSums(t(tmat * t(((irt - c) * a) / (1 - c)) * qpoints))
+        Bx[2,] <- colSums(t(tmat) * (((irt - c) * a) / (1 - c)))
+        
+        #Weight each quadrature point under ~N(0,1) assumption
+        Bx <- t((dnorm(qpoints)/(sum(dnorm(qpoints)))) * t(Bx))
+        
+        pBpalpha[,i] <- rowSums(Bx)
+        #Put the partial derivatives for each score value in the final matrix
+      }
+    }
+    
+    #pBpalpha <- matrix(0, nrow = 2, ncol = (length(b)+1))
+    return(pBpalpha)
+  }
+  
+  if(pder=="sPeqc"){
+    probs <- LordWWc(irt, (qpoints - betaB) / betaA)
+    for(j in 1:length(irt[,1])){
+      input <- as.matrix(irt)
+      input[j,] <- 1
+      cprobs[,j,] <- t(LordWWc(input, (qpoints - betaB) / betaA))
+    }
+    
+    if(model=="2pl"){
+      pBpalpha <- matrix(0, nrow = 2, ncol = (length(b)+1))
+      #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
+      
+      #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
+      for(i in 1:(length(b)+1)){
+        Bx <- matrix(0, nrow=2, ncol=length(qpoints))
+        tmat <- cprobs[,,i] - probs[i,]
+        if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+        Bx[1,] <- colSums(t(tmat * t(irt * a) * -(qpoints - betaB)/(betaA^2)))
+        Bx[2,] <- colSums(t(tmat) * (irt * a) * (-1 / betaA))
+        Bx <- t((dnorm(qpoints)/(sum(dnorm(qpoints)))) * t(Bx))
+        pBpalpha[,i] <- rowSums(Bx)
+        #Put the partial derivatives for each score value in the final matrix
+      }
+    }
+    
+    if(model=="3pl"){
+      pBpalpha <- matrix(0, nrow = 2, ncol = (length(b)+1))
+      #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
+      
+      #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
+      for(i in 1:(length(b)+1)){
+        tmat <- cprobs[,,i] - probs[i,]
+        if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+        Bx <- matrix(0, nrow=2, ncol=length(qpoints))
+        Bx[1,] <- colSums(t(tmat * t(((irt - c) * a) / (1 - c)) * -(qpoints - betaB) / (betaA^2)))
+        Bx[2,] <- colSums(t(tmat) * (((irt - c) * a) / (1 - c)) *(-1/betaA))
+        Bx <- t((dnorm(qpoints)/(sum(dnorm(qpoints)))) * t(Bx))
+        pBpalpha[,i] <- rowSums(Bx)
+        #Put the partial derivatives for each score value in the final matrix
+      }
+    }
+    #pBpalpha <- matrix(0, nrow = 2, ncol = (length(b)+1))
+    return(pBpalpha)
+  }
+  if(pder=="sQaY"){
+    cprobs <- array(0, dim = c(length(irt[1,]), length(b), (length(b)+1)))
+    probs <- matrix(0, ncol = length(irt[1,]), nrow = (length(b)+1))
+    #cprobs - probabilities to achieve each score while answering each question correctly, for each ability level
+    #probs - probability to achieve each score for each ability level (local equating score probs)
+    probs <- LordWWc(irt, qpoints)
+    for(j in 1:length(irt[,1])){
+      input <- as.matrix(irt)
+      input[j,] <- 1
+      cprobs[,j,] <- t(LordWWc(input, qpoints))
+    }
+    
+    if(model=="2pl"){
+      pBpalpha <- matrix(0, nrow = 2*length(b), ncol = (length(b)+1))
+      #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
+      Bx <- matrix(0, nrow=(2*length(b)), ncol=length(qpoints))
+      #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
+      for(i in 1:(length(b)+1)){
+        tmat <- cprobs[,,i] - probs[i,]
+        if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+        Bx[1:length(b),] <- t(tmat) * irt  * (-a)
+        Bx[(length(b)+1):(length(b)+length(a)),] <- t(tmat * t(irt) * qpoints) - t(tmat) * irt * b
+        Bx <- t((dnorm(qpoints) / (sum(dnorm(qpoints)))) * t(Bx))
+        #Weight each quadrature point under ~N(0,1) assumption
+        pBpalpha[,i] <- rowSums(Bx)
+        #Put the partial derivatives for each score value in the final matrix
+      }
+      return(pBpalpha)
+    }
+    
+    if(model=="3pl"){
+      pBpalpha <- matrix(0, nrow = 3*length(b), ncol = (length(b)+1))
+      #pBalpha - Matrix of partial derivatives w/ resp to item parameters across all quadrature points, for each score value
+      Bx <- matrix(0, nrow=(3*length(b)), ncol=length(qpoints))
+      #Bx Matrix of partial derivatives w/ resp to item parameters for each quadrature point, first c, then b, last a
+      for(i in 1:(length(b)+1)){
+        tmat <- cprobs[,,i] - probs[i,]
+        if(!is.matrix(tmat)) tmat <- t(as.matrix(tmat))
+        Bx[1:length(c),] <- t(tmat) * (1/(1-c))
+        Bx[(length(c)+1):(length(c)+length(b)),] <- t(tmat) * (((irt - c) * (-a)) / (1-c))
+        Bx[(length(c)+length(b)+1):(length(c)+length(b)+length(a)),] <- t(tmat * t((irt - c) / (1-c)) * qpoints)  + t(tmat) * (((irt - c) * (-b)) / (1-c)) 
+        Bx <- t((dnorm(qpoints)/(sum(dnorm(qpoints)))) * t(Bx))
+        #Weight each quadrature point under ~N(0,1) assumption
+        pBpalpha[,i] <- rowSums(Bx)
+        #Put the partial derivatives for each score value in the final matrix
+      }
+      return(pBpalpha)
+    }
+  }
+  
+}
+
+# pdereqcoef <- function(irtpars, model, type, kx, ky, ka, betaA, betaB){
+#   if(type="MM"){
+#     if(model=="3pl"){
+#       pBApaAP <- numeric(3*ka)
+#       pBBpaAP <- numeric(3*ka)
+#       pBApaAQ <- numeric(3*ka)
+#       pBBpaAQ <- numeric(3*ka)
+#       
+#       pBBpaAP[(ka+1):(2*ka)] <- rep(((sum(irtpars$aaQ)) / (sum(irtpars$aaP)^2)) * (sum(irtpars$baQ)/ka), ka)
+#       pBBpaAQ[(ka+1):(2*ka)] <- rep(-(1/sum(irtpars$aaP)) * (sum(irtpars$baQ)/ka), ka)
+#       pBApaAP[(2*ka+1):(3*ka)] <- rep(-((sum(irtpars$aaQ)) / (sum(irtpars$aaP)^2)), ka)
+#       pBApaAQ[(2*ka+1):(3*ka)] <- rep(1/sum(irtpars$aaP), ka)
+#       pBBpaAP[(2*ka+1):(3*ka)] <- rep(1/ka, ka)
+#       pBBpaAQ[(2*ka+1):(3*ka)] <- rep(-betaA/ka, ka)
+#       return(list(pBApaAP=pBApaAP, pBBpaAP=pBBpaAP, pBApaAQ=pBApaAQ, pBBpaAQ=pBBpaAQ))
+#     }
+#   }
+# }
+
+# pdereqcoef <- function(irtpars, model, type, kx, ky, ka, betaA, betaB){
+#   if(type="MM"){
+#     if(model=="3pl"){
+#       pBApaAP <- numeric(3*ka)
+#       pBBpaAP <- numeric(3*ka)
+#       pBApaAQ <- numeric(3*ka)
+#       pBBpaAQ <- numeric(3*ka)
+#       
+#       pBBpaAP[(ka+1):(2*ka)] <- rep(((sum(irtpars$aaQ)) / (sum(irtpars$aaP)^2)) * (sum(irtpars$baQ)/ka), ka)
+#       pBBpaAQ[(ka+1):(2*ka)] <- rep(-(1/sum(irtpars$aaP)) * (sum(irtpars$baQ)/ka), ka)
+#       pBApaAP[(2*ka+1):(3*ka)] <- rep(-((sum(irtpars$aaQ)) / (sum(irtpars$aaP)^2)), ka)
+#       pBApaAQ[(2*ka+1):(3*ka)] <- rep(1/sum(irtpars$aaP), ka)
+#       pBBpaAP[(2*ka+1):(3*ka)] <- rep(1/ka, ka)
+#       pBBpaAQ[(2*ka+1):(3*ka)] <- rep(-betaA/ka, ka)
+#       return(list(pBApaAP=pBApaAP, pBBpaAP=pBBpaAP, pBApaAQ=pBApaAQ, pBBpaAQ=pBBpaAQ))
+#     }
+#   }
+# }
+
+pderrspse <- function(irtpars, x, y, a, irtrP, irtrQ, irtsP, irtsQ, qpoints, eqc, wS, model="2pl"){
+  #irtpars - list of relevant irt pars
+  #x, y, a - score value vectors tests X, Y, A
+  #irtrP, irtrQ, irtsP, irtsQ - probabilities to answer each questions correctly for the quadrature points considered
+  #qpoints - quadrature points considered
+  #eqcoef - object of class "eqc" from pkg equateIRT with the equating coefficients and relevant partial derivatives
+  #model - IRT model used: 1pl, 2pl, 3pl
+  kxs <- length(x)-1
+  kys <- length(y)-1
+  ka <- length(a)-1
+  
+  #fix pderplpse for 1pl, 2pl
+  
+  if(model=="2pl"){
+    ktot <- 2*(kxs+kys+2*ka)
+    prSsS <- matrix(0, nrow=(kxs+kys+2), ncol=(2*(kxs+kys)+4))
+    prPrQsPsQ <- matrix(0, nrow=(2*(kxs+kys)+4), ncol=(2*(kxs+kys)+2))
+    paXaYbetaAB <- matrix(0, nrow=(2*(kxs+kys)+2), ncol=ktot)
+    
+    betaA <- eqc$A
+    betaB <- eqc$B
+    
+    prPpaX <- pderpl(irtrP, qpoints, b = irtpars$bx, model="2pl", a = irtpars$ax)
+    prQpaX <- pderplpse(irtrQ, qpoints, b = irtpars$bx, pder = "rQaX", model="2pl", a = irtpars$ax, betaA=betaA, betaB=betaB)
+    psPpaY <- pderplpse(irtsP, qpoints, b = irtpars$by, pder = "sPaY", model="2pl", a = irtpars$ay, betaA=betaA, betaB=betaB)
+    psQpaY <- pderplpse(irtsQ, qpoints, b = irtpars$by, pder = "sQaY", model="2pl", a = irtpars$ay, betaA=betaA, betaB=betaB)
+    prQpeqcoef <- pderplpse(irtrQ, qpoints, b = irtpars$bx, pder = "rQeqc", model="2pl", a = irtpars$ax, betaA=betaA, betaB=betaB)
+    psPpeqcoef <- pderplpse(irtsP, qpoints, b = irtpars$by, pder = "sPeqc", model="2pl", a = irtpars$ay, betaA=betaA, betaB=betaB)
+    
+    paXaYbetaAB[(2*kxs+2*kys+1):(2*kxs+2*kys+2), (kxs+1):(kxs+ka)] <- t(eqc$partial[(2*ka+1):(3*ka),])
+    paXaYbetaAB[(2*kxs+2*kys+1):(2*kxs+2*kys+2), (2*kxs+ka+1):(2*kxs+2*ka)] <- t(eqc$partial[(3*ka+1):(4*ka),])
+    
+    paXaYbetaAB[(2*kxs+2*kys+1):(2*kxs+2*kys+2), (2*kxs+kys+2*ka+1):(2*kxs+kys+3*ka)] <- t(eqc$partial[1:ka,])
+    paXaYbetaAB[(2*kxs+2*kys+1):(2*kxs+2*kys+2), (2*kxs+3*ka+2*kys+1):(2*kxs+4*ka+2*kys)] <- t(eqc$partial[(ka+1):(2*ka),])
+    
+    prSsS[1:(kxs+1),1:(kxs+1)] <- wS*diag(1, kxs+1)
+    prSsS[1:(kxs+1), (kxs+2):(2*(kxs+1))] <- (1-wS)*diag(1, kxs+1)
+    prSsS[(kxs+2):(kxs+kys+2), (2*(kxs+1)+1):(2*(kxs+1)+kys+1)] <- wS*diag(1, kys+1)
+    prSsS[(kxs+2):(kxs+kys+2), (2*(kxs+1)+kys+2):(2*(kxs+1)+2*(kys+1))] <- (1-wS)*diag(1, kys+1)
+    
+    prPrQsPsQ[1:(kxs+1), 1:(2*kxs)] <- t(prPpaX)
+    prPrQsPsQ[(kxs+2):(2*(kxs+1)), 1:(2*kxs)] <- t(prQpaX)
+    prPrQsPsQ[(2*(kxs+1)+1):(2*(kxs+1)+kys+1), (2*kxs+1):(2*kxs+2*kys)] <- t(psPpaY)
+    prPrQsPsQ[(2*(kxs+1)+kys+2):(2*(kxs+1)+2*(kys+1)), (2*kxs+1):(2*kxs+2*kys)] <- t(psQpaY)
+    
+    prPrQsPsQ[(kxs+2):(2*(kxs+1)), (2*kxs+2*kys+1):(2*kxs+2*kys+2)] <- t(prQpeqcoef)
+    prPrQsPsQ[(2*(kxs+1)+1):(2*(kxs+1)+kys+1), (2*kxs+2*kys+1):(2*kxs+2*kys+2)] <- t(psPpeqcoef)
+    
+    paXaYbetaAB[1:kxs, 1:kxs] <- diag(1, kxs)
+    paXaYbetaAB[(kxs+1):(2*kxs), (kxs+ka+1):(2*kxs+ka)] <- diag(1, kxs)
+    
+    paXaYbetaAB[(2*kxs+1):(2*kxs+kys), (2*kxs+2*ka+1):(2*kxs+2*ka+kys)] <- diag(1, kys)
+    paXaYbetaAB[(2*kxs+kys+1):(2*kxs+2*kys), (2*kxs+3*ka+kys+1):(2*kxs+3*ka+2*kys)] <- diag(1, kys)
+    
+    return(list(prSsS=prSsS, prPrQsPsQ=prPrQsPsQ, paXaYbetaAB=paXaYbetaAB))
+  }
+  
+  if(model=="3pl"){
+    ktot <- 3*(kxs+kys+2*ka)
+    prSsS <- matrix(0, nrow=(kxs+kys+2), ncol=(2*(kxs+kys)+4))
+    prPrQsPsQ <- matrix(0, nrow=(2*(kxs+kys)+4), ncol=(3*(kxs+kys)+2))
+    paXaYbetaAB <- matrix(0, nrow=(3*(kxs+kys)+2), ncol=ktot)
+    
+    betaA <- eqc$A
+    betaB <- eqc$B
+    
+    prPpaX <- pderpl(irtrP, qpoints, b = irtpars$bx, model, a = irtpars$ax, c = irtpars$cx)
+    prQpaX <- pderplpse(irtrQ, qpoints, b = irtpars$bx, pder = "rQaX", model, a = irtpars$ax, c = irtpars$cx, betaA, betaB)
+    psPpaY <- pderplpse(irtsP, qpoints, b = irtpars$by, pder = "sPaY", model, a = irtpars$ay, c = irtpars$cy, betaA, betaB)
+    psQpaY <- pderplpse(irtsQ, qpoints, b = irtpars$by, pder = "sQaY", model, a = irtpars$ay, c = irtpars$cy, betaA, betaB)
+    prQpeqcoef <- pderplpse(irtrQ, qpoints, b = irtpars$bx, pder = "rQeqc", model, a = irtpars$ax, c = irtpars$cx, betaA, betaB)
+    psPpeqcoef <- pderplpse(irtsP, qpoints, b = irtpars$by, pder = "sPeqc", model, a = irtpars$ay, c = irtpars$cy, betaA, betaB)
+    
+    paXaYbetaAB[(3*kxs+3*kys+1):(3*kxs+3*kys+2), (kxs+1):(kxs+ka)] <- t(eqc$partial[(5*ka+1):(6*ka),])
+    paXaYbetaAB[(3*kxs+3*kys+1):(3*kxs+3*kys+2), (2*kxs+ka+1):(2*kxs+2*ka)] <- t(eqc$partial[(3*ka+1):(4*ka),])
+    paXaYbetaAB[(3*kxs+3*kys+1):(3*kxs+3*kys+2), (3*kxs+2*ka+1):(3*kxs+3*ka)] <- t(eqc$partial[(4*ka+1):(5*ka),])
+    
+    paXaYbetaAB[(3*kxs+3*kys+1):(3*kxs+3*kys+2), (3*kxs+kys+3*ka+1):(3*kxs+kys+4*ka)] <- t(eqc$partial[(2*ka+1):(3*ka),])
+    paXaYbetaAB[(3*kxs+3*kys+1):(3*kxs+3*kys+2), (3*kxs+4*ka+2*kys+1):(3*kxs+5*ka+2*kys)] <- t(eqc$partial[1:ka,])
+    paXaYbetaAB[(3*kxs+3*kys+1):(3*kxs+3*kys+2), (3*kxs+5*ka+3*kys+1):ktot] <- t(eqc$partial[(ka+1):(2*ka),])
+    
+    prSsS[1:(kxs+1),1:(kxs+1)] <- wS*diag(1, kxs+1)
+    prSsS[1:(kxs+1), (kxs+2):(2*(kxs+1))] <- (1-wS)*diag(1, kxs+1)
+    prSsS[(kxs+2):(kxs+kys+2), (2*(kxs+1)+1):(2*(kxs+1)+kys+1)] <- wS*diag(1, kys+1)
+    prSsS[(kxs+2):(kxs+kys+2), (2*(kxs+1)+kys+2):(2*(kxs+1)+2*(kys+1))] <- (1-wS)*diag(1, kys+1)
+    
+    prPrQsPsQ[1:(kxs+1), 1:(3*kxs)] <- t(prPpaX)
+    prPrQsPsQ[(kxs+2):(2*(kxs+1)), 1:(3*kxs)] <- t(prQpaX)
+    prPrQsPsQ[(2*(kxs+1)+1):(2*(kxs+1)+kys+1), (3*kxs+1):(3*kxs+3*kys)] <- t(psPpaY)
+    prPrQsPsQ[(2*(kxs+1)+kys+2):(2*(kxs+1)+2*(kys+1)), (3*kxs+1):(3*kxs+3*kys)] <- t(psQpaY)
+    
+    prPrQsPsQ[(kxs+2):(2*(kxs+1)), (3*kxs+3*kys+1):(3*kxs+3*kys+2)] <- t(prQpeqcoef)
+    prPrQsPsQ[(2*(kxs+1)+1):(2*(kxs+1)+kys+1), (3*kxs+3*kys+1):(3*kxs+3*kys+2)] <- t(psPpeqcoef)
+    
+    paXaYbetaAB[1:kxs, 1:kxs] <- diag(1, kxs)
+    paXaYbetaAB[(kxs+1):(2*kxs), (kxs+ka+1):(2*kxs+ka)] <- diag(1, kxs)
+    paXaYbetaAB[(2*kxs+1):(3*kxs), (2*kxs+2*ka+1):(3*kxs+2*ka)] <- diag(1, kxs)
+    
+    paXaYbetaAB[(3*kxs+1):(3*kxs+kys), (3*kxs+3*ka+1):(3*kxs+3*ka+kys)] <- diag(1, kys)
+    paXaYbetaAB[(3*kxs+kys+1):(3*kxs+2*kys), (3*kxs+4*ka+kys+1):(3*kxs+4*ka+2*kys)] <- diag(1, kys)
+    paXaYbetaAB[(3*kxs+2*kys+1):(3*kxs+3*kys), (3*kxs+5*ka+2*kys+1):(3*kxs+5*ka+3*kys)] <- diag(1, kys)
+    
+    return(list(prSsS=prSsS, prPrQsPsQ=prPrQsPsQ, paXaYbetaAB=paXaYbetaAB))
+  }
 }
 
 PEN<-function(h, r, x, var, mean, wpen, K, kernel, slog, bunif){
@@ -3730,16 +4540,19 @@ PREp<-function(eq, obs, r, s){
 probpl <- function(qpoints, b, model="3pl", a=0, c=0){
   out <- matrix(0, ncol = length(qpoints), nrow = length(b))
   if(model=="1pl"){
-    for(i in 1:length(qpoints))
-      out[,i] <- 1/(1+exp(-(qpoints[i]-b)))
+    tmat <- matrix(rep(b, length(qpoints)), nrow = length(b), ncol = length(qpoints))
+    tmat <- t(t(tmat) - qpoints)
+    out <- 1 / (1 + exp(tmat))
   }
   if(model=="2pl"){
-    for(i in 1:length(qpoints))
-      out[,i] <- 1/(1+exp(-a*(qpoints[i]-b)))
+    tmat <- matrix(rep(a, length(qpoints)), nrow = length(a), ncol = length(qpoints))
+    tmat <- - t(t(tmat) * qpoints) + tmat * b
+    out <- 1 / (1 + exp(tmat))
   }
   if(model=="3pl"){
-    for(i in 1:length(qpoints))
-      out[,i] <- c +(1-c)/(1+exp(-a*(qpoints[i]-b)))
+    tmat <- matrix(rep(a, length(qpoints)), nrow = length(a), ncol = length(qpoints))
+    tmat <- - t(t(tmat) * qpoints) + tmat * b
+    out <- c + (1-c) / (1+exp(tmat))
   }
   return(out)
 }

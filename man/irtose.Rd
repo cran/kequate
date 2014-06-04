@@ -10,7 +10,8 @@ A function to conduct an equating between two parallel tests using item response
 irtose(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="analytical", 
 replications=50, kernel="gaussian", h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), 
 hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, 
-wpen=0.5, linear=FALSE, slog=1, bunif=1, altopt=FALSE)
+wpen=0.5, linear=FALSE, slog=1, bunif=1, altopt=FALSE, wS=0.5, eqcoef="mean-mean", 
+robust=FALSE)
 }
 
 \arguments{
@@ -35,7 +36,7 @@ Vector of possible score values of the main test Y to be equated.
 }
 
   \item{a}{
-Vector of possible score values of the anchor test A.
+Vector of possible score values of the anchor test A. (For NEAT designs only.)
 }
 
   \item{qpoints}{
@@ -43,7 +44,7 @@ A numeric vector containing the quadrature points used in the equating. If not s
 }
 
   \item{model}{
-A character vector indicating which IRT model to use. Available models are 2PL and 3PL. Default is "2PL".
+A character vector indicating which IRT model to use. Available models are 2pl and 3pl. Default is "2pl".
 }
 
   \item{see}{
@@ -88,6 +89,18 @@ Logical denoting if only a linear equating is to be performed. Default is FALSE.
 
   \item{altopt}{
 Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE. 
+}
+
+  \item{wS}{
+The weighting of group P in a PSE equating. Default is 0.5.
+}
+
+  \item{eqcoef}{
+Character vector indicating which equating coefficients to use. Options are "mean-mean", "mean-gmean", "mean-sigma", "Stocking-Lord" and "Haebara". Default is "mean-mean". (Only for PSE.)
+}
+
+  \item{robust}{
+Logical indicating whether the robust covariance matrix should be calculated for the IRT model. Warning: is slow for large models and large sample sizes. Default is FALSE. (Only for 2pl and GPCM models.)
 }
 
 }

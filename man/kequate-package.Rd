@@ -11,8 +11,8 @@ The kernel equating technique for equating test scores is implemented, supportin
 \tabular{ll}{
 Package: \tab kequate\cr
 Type: \tab Package\cr
-Version: \tab 1.3.2\cr
-Date: \tab 2013-10-10\cr
+Version: \tab 1.4.0\cr
+Date: \tab 2014-06-04\cr
 License: \tab GPL-3\cr
 LazyLoad: \tab yes\cr
 Depends: \tab R (>=2.11.0), methods, graphics, stats, ltm\cr

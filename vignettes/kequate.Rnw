@@ -518,7 +518,7 @@ QNEAT$ind2y[QNEAT$X==15] <- 15
 QNEAT$ind2y[QNEAT$X==20] <- 20
 @
 Similarly, additional variables can be created for any particular values of the \code{A} variable.
-     When we have suitable data we can begin the estimation of the log-linear model. First, univariate log-linear models are found using methods identical to the EG case, for each of the four univariate distributions. Having specified these models, the bivariate models for each population is specified in a manner similar to the SG case considering cross-moments up to the highest univariate moments in each univariate log-linear model. Additionally, possible indicator variables and moments of score values corresponding to the particular indicator variables need to be specified. In this example we include the first three moments of the test to be equated and the first two moments of the anchor test. An interaction term between the first moment for the test to be equated and the anchor test is included along with an interaction term between the first moment of the test to be equated and the second moment of the ancor test. Each indicator variable defined above is included. For the variable \code{ind2x} the first two moments are included. The function call to \code{glm()} is given below.
+     When we have suitable data we can begin the estimation of the log-linear model. First, univariate log-linear models are found using methods identical to the EG case, for each of the four univariate distributions. Having specified these models, the bivariate models for each population is specified in a manner similar to the SG case considering cross-moments up to the highest univariate moments in each univariate log-linear model. Additionally, possible indicator variables and moments of score values corresponding to the particular indicator variables need to be specified. In this example we include the first three moments of the test to be equated and the first two moments of the anchor test. An interaction term between the first moment for the test to be equated and the anchor test is included along with an interaction term between the first moment of the test to be equated and the second moment of the anchor test. Each indicator variable defined above is included. For the variable \code{ind2x} the first two moments are included. The function call to \code{glm()} is given below.
 <<echo=TRUE>>=
 PNEATglm <- glm(frequency~I(X) + I(X^2) + I(X^3) + I(A) + I(A^2) + 
 I(X):I(A) + I(X):I(A^2) + I(indx0) + I(ind1x) + I(ind2x) + I(ind2x^2), 
@@ -532,37 +532,34 @@ data = QNEAT, family = "poisson", x = TRUE)
 
 \subsubsection{Non-equivalent groups with covariates design}
      Instead of (or in addition to) using an anchor test to equate tests in a non-equivalent groups design, covariates of test takers can be used to conduct an equating. The same framework as in a NEAT PSE design is used in the NEC design, but inplace of an anchor test the method uses information from covariates to equate the tests. As in the other designs, the observed data needs to be modelled using log-linear models. In the NEC case the model specification is somewhat more complicated, and the data management can be more laborious. 
-     In \pkg{kequate} the function \code{kefreq()} cannot be used to tabulate frequency data since the covariates can be of any type and not just integers. The aggregation of the individual data in a NEC design is therefore not easily generalized into a single function. Instead, the data aggregation can be done manually in \proglang{R} using built-in functions. We illustrate how this can be done with a simple example. Consider a test X to be equated with a parallel test Y, which has integer score values from 0 to 40. In addition to the test results, there exists information on the individuals in the form of two covariates, one of which is the grade in mathematics (a quantitative variable with possible values 1, 2 and 3) and the other is a qualitative variable representing type of education (two values). In total, there are thus six different combinations of covariates that are possible. The desired frequency vector is then of size 41*6. At our disposal is a data frame (called \code{data11})  with observations from indivuduals for the test to be equated (variable \code{S11}) and the covariates considered (variables \code{edu} and \code{math}).  We want to aggregate and sort this data so that each entry in the created vector is a frequency corresponding to a particular combination of test score and covariate values where the data is sorted first by the grade in mathematics, then by the type of education and lastly by the test score received. To do so we use a combination of the functions \code{table()} and \code{as.data.frame()}:
-%\begin{verbatim}     
-%R> testfreq <- as.data.frame(table(factor(data11$S11, levels = 0:40, ordered
-%+    = TRUE), factor(data11$edu, levels = 1:3, ordered = TRUE), 
-%+   factor(data11$math, levels = 1:3, ordered = TRUE, dnn = c("S11", "edu", 
-%+   "math")))
-%\end{verbatim}
-<<echo=TRUE>>=
-testfreq <- as.data.frame(table(factor(data11$S11, levels = 0:40, ordered 
-= TRUE), factor(data11$edu, levels = 1:2, ordered = TRUE), 
-factor(data11$math, levels = 1:3, ordered = TRUE), dnn = c("S11", "edu", 
+     In \pkg{kequate} the function \code{kefreq()} cannot be used to tabulate frequency data since the covariates can be of any type and not just integers. The aggregation of the individual data in a NEC design is therefore not easily generalized into a single function. Instead, the data aggregation can be done manually in \proglang{R} using built-in functions. We illustrate how this can be done with a simple example. Consider a test X to be equated with a parallel test Y, which has integer score values from 0 to 40. In addition to the test results, there exists information on the individuals in the form of two covariates, one of which is the grade in mathematics (a quantitative variable with possible values 1, 2 and 3) and the other is a qualitative variable representing type of education (two values). In total, there are thus six different combinations of covariates that are possible. The desired frequency vector is then of size 41*6. At our disposal is a data frame (called \code{obs11})  with observations from indivuduals for the test to be equated (variable \code{S11}) and the covariates considered (variables \code{edu} and \code{math}).  We want to aggregate and sort this data so that each entry in the created vector is a frequency corresponding to a particular combination of test score and covariate values where the data is sorted first by the grade in mathematics, then by the type of education and lastly by the test score received. To do so we use a combination of the functions \code{table()} and \code{as.data.frame()}:
+<<echo=FALSE>>=
+obs11 <- data11
+@
+<<echo=TRUE, eval=FALSE>>=
+testfreq <- as.data.frame(table(factor(obs11$S11, levels = 0:40, ordered
+= TRUE), factor(obs11$edu, levels = 1:3, ordered = TRUE), 
+factor(obs11$math, levels = 1:3, ordered = TRUE), dnn = c("S11", "edu", 
 "math")))
 @
 This will create a data frame with a single vector \code{Freq}, which contains 41*6 cells each containing a frequency corresponding to the possible score values and covariate combinations. The score and covariate vectors need now be specified. We do so by specifying a data frame, using the \code{rep()} function to create the vectors needed:
-%\begin{verbatim}
-%R> testdata <- data.frame(frequency = testfreq$Freq, xscore = rep(0:22, 9),
-%+   math = rep(1:3, each=23), edu = rep(1:3, each = 23*3))
-%\end{verbatim}
-<<echo=TRUE>>=
+<<echo=TRUE, eval=FALSE>>=
 testdata11 <- data.frame(frequency = testfreq$Freq, S11 = rep(0:40, 6),
-edu = rep(1:2, each=41*3), math = rep(1:3, each = 41*2))
+edu = rep(1:2, each=41), math = rep(1:3, each = 41*2))
+@
+<<echo=FALSE>>=
+testdata11 <- data11
+testdata12 <- data12
 @
 This call creates a data frame with the correctly sorted vectors to be used in the bivariate \code{glm} model.
      To estimate the log-linear model in the NEC case we proceed just as we would in a regular bivariate log-linear model specification. First, the univariate model for the test scores is estimated like in the EG case (\code{kefreq()} can be used to create the score frequency vector). A bivariate log-linear model is then specified using the moments from the univariate model while adding the variables corresponding to the covariates. Interactions between the  moments for the tests and the covariates need to be considered along with interactions between the covariates. In our example, \code{math} is a quantitative variable and higher moments of this variable can thus be needed and possible interactions between these and other variables may need to be considered. \code{edu} is a factor and thus needs to be specified as such in the \code{glm()} function call. 
 <<echo=TRUE>>=
 glm11 <- glm(frequency~I(S11) +  I(S11^2) + I(S11^3) + I(S11^4) + 
 I(math) + I(math^2) + factor(edu) + I(S11):I(math) + I(S11):factor(edu) + 
-I(math):factor(edu), data = data11, family = "poisson", x = TRUE)
+I(math):factor(edu), data = testdata11, family = "poisson", x = TRUE)
 @
 <<echo=FALSE>>=
-glm12 <- glm(frequency~I(S12) +  I(S12^2) + I(S12^3) + I(S12^4) + I(math) + I(math^2) + factor(edu) + I(S12):I(math) + I(S12):factor(edu) + I(math):factor(edu), data = data12, family = "poisson", x = TRUE)
+glm12 <- glm(frequency~I(S12) +  I(S12^2) + I(S12^3) + I(S12^4) + I(math) + I(math^2) + factor(edu) + I(S12):I(math) + I(S12):factor(edu) + I(math):factor(edu), data = testdata12, family = "poisson", x = TRUE)
 @
 
 \subsection{Assessing model fit}
@@ -821,10 +818,20 @@ keCB <- kequate("CB", 0:40, 0:40, glmCB12, glmCB21)
 Unique to the CB design is the argument \code{wcb}, which specifies the weighting of the two groups taking the test. The default is \code{wcb = 1/2}, meaning that the two groups are given the same weight.
 
 \subsection{Non-equivalent groups design}
+<<echo=FALSE>>=
+PNEAT <- kefreq(simeq$bivar1$X, 0:20, simeq$bivar1$A, 0:10)
+QNEAT <- kefreq(simeq$bivar2$Y, 0:20, simeq$bivar2$A, 0:10)
+NEATglmP <- glm(frequency~I(X) + I(X^2) + I(X^3) + I(A) + I(A^2) + 
+I(X):I(A) + I(X):I(A^2), 
+data = PNEAT, family = "poisson", x = TRUE)
+NEATglmQ <- glm(frequency~I(X) + I(X^2) + I(X^3) + I(A) + I(A^2) + 
+I(X):I(A) + I(X):I(A^2), 
+data = QNEAT, family = "poisson", x = TRUE)
+@
 \subsubsection*{Chain equating}
-In a NEAT design, let the parallel tests X and Y have common score vectors <0, 1, 2, \ldots, 19, 20> and let the anchor test A have the score vector <0, 1, 2, \ldots, 9, 10>. Using chain equating, we can equate these two tests without assuming that the group taking test X and the group taking test Y come from the same population. In chain equating, this is accomplished by first linking test X to the anchor test A, and then linking the anchor test A to the test Y. We assume that the log-linear model is estimated using a method similar to that in Section~\ref{section32}, and that \code{PNEATglm} and \code{QNEATglm} are the resulting \code{glm} objects. We equate the two tests by writing
+In a NEAT design, let the parallel tests X and Y have common score vectors <0, 1, 2, \ldots, 19, 20> and let the anchor test A have the score vector <0, 1, 2, \ldots, 9, 10>. Using chain equating, we can equate these two tests without assuming that the group taking test X and the group taking test Y come from the same population. In chain equating, this is accomplished by first linking test X to the anchor test A, and then linking the anchor test A to the test Y. We assume that the log-linear model is estimated using a method similar to that in Section~\ref{section32} only without the parameters for lumps and spikes, and that \code{NEATglmP} and \code{NEATglmQ} are the resulting \code{glm} objects. We equate the two tests by writing
 <<echo=TRUE>>=
-keNEATCE <- kequate("NEAT_CE", 0:20, 0:20, 0:10, PNEATglm, QNEATglm)
+keNEATCE <- kequate("NEAT_CE", 0:20, 0:20, 0:10, NEATglmP, NEATglmQ)
 @
 This creates a \code{glm} object \code{keNEATCE} which can be used as input to the generic functions \code{plot()} and \code{summary()}, among others. Thus, we plot the the equating function and the  standard error of equating by writing
 <<label=neatceplot, echo=TRUE, include=FALSE, height=7, width=9>>=
@@ -842,9 +849,9 @@ plot(keNEATCE)
 The resulting plot can be seen in Figure~\ref{cefig}.
 
 \subsubsection*{Post-stratification equating}
-We again want to equate two tests X and Y with common score vectors <0, 1, 2, \ldots, 19, 20>. By using an anchor test we can equate these tests without assuming that the populations taking each test are perfectly identical. The log-linear model estimation procedure for CE and NEAT do not differ, so we again suppose that \code{FPNEATglm} and \code{FQNEATglm} are appropriate \code{glm} objects containing bivariate log-linear models over P and Q respectively. We can then equate the tests X and Y in a NEAT PSE design by writing:
+We again want to equate two tests X and Y with common score vectors <0, 1, 2, \ldots, 19, 20>. By using an anchor test we can equate these tests without assuming that the populations taking each test are perfectly identical. The log-linear model estimation procedure for CE and NEAT do not differ, so we again suppose that \code{NEATglmP} and \code{NEATglmQ} are appropriate \code{glm} objects containing bivariate log-linear models over P and Q respectively. We can then equate the tests X and Y in a NEAT PSE design by writing:
 <<echo=TRUE>>=
-keNEATPSE <- kequate("NEAT_PSE", 0:20, 0:20, PNEATglm, QNEATglm)
+keNEATPSE <- kequate("NEAT_PSE", 0:20, 0:20, NEATglmP, NEATglmQ)
 @
 This will create an object of class \code{keout} containing information about the equating. No matter the design used, the objects are still of the same class with certain slots filled in while others are not depending on the design.
 
