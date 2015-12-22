@@ -2,4 +2,6 @@ export("cdist", "FTres", "genseed", "getEquating", "getPre", "getType", "getScor
 exportMethods("plot","summary", "getEquating", "getPre", "getType", "getScores", "getH", "getEq", "getSee", "getEqlin", "getSeelin", "getEqirt", "getSeeirt", "getSeed")
 exportClasses("cdist","genseed","keout")
 
-import(graphics, methods, stats, ltm, equateIRT)
+import(graphics, methods, stats, ltm, mirt, equateIRT)
+importFrom("utils", "capture.output")
+importFrom("utils", "tail")

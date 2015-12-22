@@ -80,7 +80,7 @@ setMethod("plot", signature(x="cdist"), function(x){
 #}
 #)
 
-setGeneric("summary")
+#setGeneric("summary")
 setMethod("summary", signature(object="keout"), function(object){
   cat(" Design:", object@type, "\n\n")
   cat(" Kernel:", object@kernel, "\n\n")
@@ -191,6 +191,68 @@ setMethod("getSeeirt","keout",
 )
 
 #adjust the covariance matrix of the item parameters according to the parametrization used
+adjgrm <- function(input){
+  
+  nitem <- length(input$coefficients)
+  ncats <- numeric(nitem)
+  for(i in 1:nitem) ncats[i] <- length(input$coefficients[[i]])
+  
+  pdermat <- matrix(0, ncol = sum(ncats), nrow = sum(ncats))
+  
+  k <- 1
+  for(i in 1:nitem){
+    tempmat <- matrix(0, nrow = ncats[i], ncol = ncats[i])
+    for(j in 1:(ncats[i] - 1)) tempmat[j,j] <- 1 / input$coefficients[[i]][ncats[i]]
+    tempmat[ncats[i], ] <- c(- input$coefficients[[i]][1:(ncats[i]-1)] / input$coefficients[[i]][ncats[i]]^2, 1)
+    pdermat[k:(k + ncats[i]-1), k:(k + ncats[i]-1)] <- tempmat
+    k <- k + ncats[i]
+  }
+  pdermat
+}
+
+adjgpcmmirt <- function(input){
+  ncats <- extract.mirt(input, "K")
+  nitem <- length(ncats)
+  pdermat <- matrix(0, ncol = sum(ncats), nrow = sum(ncats))
+  k <- 1
+  for(i in 1:nitem){
+    ttpar <- extract.item(input, i)
+    tempmat <- matrix(0, nrow = ncats[i], ncol = ncats[i])
+    tempmat[1, 1] <- ttpar@par[2+ncats[i]+1] / ttpar@par[1]^2
+    for(j in 2:(ncats[i]-1)) tempmat[1, j] <- (ttpar@par[j+ncats[i]+2] - ttpar@par[j+ncats[i]+1]) / ttpar@par[1]^2
+    tempmat[1, ncats[i]] <- 1
+    
+    for(j in 2:(ncats[i]-1)){
+      tempmat[j,j-1] <- -1 / ttpar@par[1]
+      tempmat[j,j] <- 1 / ttpar@par[1]
+    }
+    tempmat[ncats[i], ncats[i]-1] <- -1 / ttpar@par[1]
+    
+    #print(tempmat)
+    pdermat[k:(k + ncats[i]-1), k:(k + ncats[i]-1)] <- tempmat
+    k <- k + ncats[i]
+  }
+  pdermat
+}
+
+adjgrmmirt <- function(input){
+  ncats <- extract.mirt(input, "K")
+  nitem <- length(ncats)
+  
+  pdermat <- matrix(0, ncol = sum(ncats), nrow = sum(ncats))
+  
+  k <- 1
+  for(i in 1:nitem){
+    ttpar <- extract.item(input, i)
+    tempmat <- matrix(0, nrow = ncats[i], ncol = ncats[i])
+    for(j in 2:ncats[i]) tempmat[j,j] <- -1 / ttpar@par[1]
+    tempmat[1,] <- c(1, ttpar@par[-1] / ttpar@par[1]^2)
+    pdermat[k:(k + ncats[i]-1), k:(k + ncats[i]-1)] <- tempmat
+    k <- k + ncats[i]
+  }
+  pdermat
+}
+
 adjltm <- function(mat, pars, design, model){
   if(design=="CE" || design=="PSE"){
     if(model=="2pl"){
@@ -397,6 +459,46 @@ cmatrixSG<-function(p, DM, N){  			#p=vector of estimated probabilities for poss
 	return((1/sqrt(N))*Dp%*%qr.Q(qr(QR)))
 }
 
+cmnom <- function(cats, probs, qpoints){
+  #cats - no of categories for each item (we assume 0, 1, 2, ... scoring, i.e. cats[i] <- 3 means 0, 1, 2 scoring)
+  #probs a list of length(cats) with probabilities to answer in each category on each item for each ability level, i.e. each list entry is a matrix with dim(probs[[i]]) = c(cats[i], length(qpoints))
+  #qpoints is a vector of quadrature points
+  JX <- length(cats)
+  xK <- sum(cats) - JX
+  nsprobs <- matrix(0, nrow = xK + 1, ncol = length(qpoints))
+  nsprobs[1:(cats[1]),] <- probs[[1]]
+  
+  if(JX>1){
+  for(i in 2:JX){
+    maxsc <- sum(cats[1:i]) - length(cats[1:i])
+    sprobs <- nsprobs
+    nsprobs <- matrix(0, nrow = xK + 1, ncol = length(qpoints))
+    for(j in 1:(maxsc - cats[i] + 2))  nsprobs[j:(cats[i] + j - 1),] <- t(sprobs[j,] * t(probs[[i]])) + nsprobs[j:(cats[i] + j - 1),]
+  }
+  }
+  t(t(nsprobs) * (dnorm(qpoints) / sum(dnorm(qpoints))))
+}
+
+ccmnom <- function(cats, probs, qpoints){
+  #cats - no of categories for each item (we assume 0, 1, 2, ... scoring, i.e. cats[i] <- 3 means 0, 1, 2 scoring)
+  #probs a list of length(cats) with probabilities to answer in each category on each item for each ability level, i.e. each list entry is a matrix with dim(probs[[i]]) = c(cats[i], length(qpoints))
+  #qpoints is a vector of quadrature points
+  JX <- length(cats)
+  xK <- sum(cats) - JX
+  nsprobs <- matrix(0, nrow = xK + 1, ncol = length(qpoints))
+  nsprobs[1:(cats[1]),] <- probs[[1]]
+  
+  if(JX>1){
+  for(i in 2:JX){
+    maxsc <- sum(cats[1:i]) - length(cats[1:i])
+    sprobs <- nsprobs
+    nsprobs <- matrix(0, nrow = xK + 1, ncol = length(qpoints))
+    for(j in 1:(maxsc - cats[i] + 2))  nsprobs[j:(cats[i] + j - 1),] <- t(sprobs[j,] * t(probs[[i]])) + nsprobs[j:(cats[i] + j - 1),]
+  }
+  }
+  nsprobs
+}
+
 #sample mean, variance, skewness and kurtosis for a probability or frequency vector r and score value vector x
 cmoments<-function(r, x){
 	mean<-(r/sum(r))%*%x
@@ -472,30 +574,6 @@ dFdr<-function(r, h, var, mean, fprim, eqx, x, kernel, slog, bunif, altopt=FALSE
   }
 return(dFdrest)									#We obtain a J x J matrix of derivatives evaluated at each value of eqx.
 }
-
-#calculate the equating coefficients
-# eqcoefficients <- function(irt1, irt2, x, y, a, type="MM"){
-#   kx <- length(x)
-#   ky <- length(y)
-#   ka <- length(a)
-#   if(type=="MM"){
-#     if(is(irt1)=="rasch" && is(irt2)=="rasch"){
-#       betaB <- sum(coef(irt2)[(kx+1):(kx+ka),1])/sum(coef(irt1)[(ky+1):(ky+ka),1])
-#       return(betaB)
-#     }      
-#     if(is(irt1)=="ltm" && is(irt2)=="ltm"){
-#       betaA <- sum(coef(irt2)[(kx+1):(kx+ka),2])/sum(coef(irt1)[(ky+1):(ky+ka),2])
-#       betaB <- mean(coef(irt1)[(kx+1):(kx+ka),1])-betaA*mean(coef(irt2)[(kx+1):(kx+ka),1])
-#       return(c(betaA, betaB))
-#     }      
-#     if(is(irt1)=="tpm" && is(irt2)=="tpm"){
-#       betaA <- sum(coef(irt2)[(kx+1):(kx+ka),3])/sum(coef(irt1)[(ky+1):(ky+ka),3])
-#       betaB <- mean(coef(irt1)[(kx+1):(kx+ka),2])-betaA*mean(coef(irt2)[(kx+1):(kx+ka),2])
-#       return(c(betaA, betaB))
-#     }    
-#   }
-#   else return()
-# }
 
 #Let's say we want to equate X to Y. cdf=estimated
 #cdf for test X, vector w/ J entries. r=estimated
@@ -641,24 +719,16 @@ genseed<-function(in1, in2, linear=FALSE){
     }
 }
 
-irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="analytical", replications=50, kernel="gaussian", h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, wpen=0.5, linear=FALSE, slog=1, bunif=1, altopt=FALSE, wS=0.5, eqcoef="mean-mean", robust=FALSE){
-  
-  #P - object from ltm with IRT model for group P, where the first items are main test, the last are the anchor test OR a matrix of responses w/out missing values, rows are individuals, columns are items, the main test first, then the anchor test
-  #Q - equivalent to P, for group Q
-  #x - score points test X
-  #y - score points test Y
-  #a - score points test A
-  #qpoints - quadrature points to be used, if not specified defaults to the quadrature points used in the IRT model 
-  #model - IRT model, "1pl", "2pl", "3pl" (start w/ 2pl)
-  #eqcoef - (PSE only) denotes the method used estimating equating coefficients, "mean-mean", "mean-sigma", "mean-gmean", "Haebara", "Stocking-Lord"
-  #see kequate() for rest args
-  if(design=="CE"){
-    if(model=="2pl"){
+irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
+  covP <- NULL
+  if(model == "2pl"){
+    nX <- length(x) - 1
+    nA <- length(a) - 1
     if("ltm" %in% class(P)){
-      bx <- as.numeric(coef.ltm(P)[,1])[1:(length(x)-1)]
-      baP <- as.numeric(coef.ltm(P)[,1])[(length(x)):((length(x)+length(a)-2))]
-      ax <- as.numeric(coef.ltm(P)[,2])[1:(length(x)-1)]
-      aaP <- as.numeric(coef.ltm(P)[,2])[(length(x)):((length(x)+length(a)-2))]
+      bx <- as.numeric(coef.ltm(P)[,1])[1:nX]
+      baP <- as.numeric(coef.ltm(P)[,1])[(nX + 1):(nX + nA)]
+      ax <- as.numeric(coef.ltm(P)[,2])[1:nX]
+      aaP <- as.numeric(coef.ltm(P)[,2])[(nX + 1):(nX + nA)]
       if(P$IRT.param){
         bxltm <- -ax*bx
         baPltm <- -aaP*baP
@@ -671,143 +741,389 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       N <- dim(P$X)[1]
       ltmP <- P
       P <- ltmP$X
-    } else{
-      if(is.matrix(P)){
-        if((length(a)+length(x)-2) != ncol(P))
-          return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
-        ltmP <- ltm(P ~ z1, IRT.param=FALSE)
-        bx <- as.numeric(coef.ltm(ltmP)[,1])[1:(length(x)-1)]
-        baP <- as.numeric(coef.ltm(ltmP)[,1])[(length(x)):((length(x)+length(a)-2))]
-        ax <- as.numeric(coef.ltm(ltmP)[,2])[1:(length(x)-1)]
-        aaP <- as.numeric(coef.ltm(ltmP)[,2])[(length(x)):((length(x)+length(a)-2))]
+      if(SE) covP <- vcov.ltm(ltmP, robust = robust)
+    } else if(class(P) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+      myspP <- extract.mirt(P, "parvec")
+      b <- myspP[seq(2, 2 * (nX + nA), by = 2)]
+      a <- myspP[seq(1, 2 * (nX + nA), by = 2)]
+      ax <- a[1:nX]
+      bx <- b[1:nX]
+      baP <- b[(nX + 1):(nX + nA)]
+      aaP <- a[(nX + 1):(nX + nA)]
+      if(SE){
+        mycovP <- extract.mirt(P, "vcov")
+        upmat <- cbind(mycovP[seq(2, 2*(nX + nA), by = 2), seq(2, 2*(nX + nA), by = 2)], mycovP[seq(2, 2*(nX + nA), by = 2), seq(1, 2*(nX + nA), by = 2)])
+        lowmat <- cbind(mycovP[seq(2, 2*(nX + nA), by = 2), seq(1, 2*(nX + nA), by = 2)], mycovP[seq(1, 2*(nX + nA), by = 2), seq(1, 2*(nX + nA), by = 2)])
+        covP <- rbind(upmat, lowmat)
+      }
+      bxltm <- bx
+      baPltm <- baP
+      bx <- -bxltm/ax
+      baP <- -baPltm/aaP
+      dataP <- extract.mirt(P, "tabdata")
+      N <- nrow(dataP)
+      ltmP <- P
+      P <- dataP
+    } else if(is.matrix(P)){
+      if((length(a)+length(x)-2) != ncol(P))
+        return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+      ltmP <- ltm(P ~ z1, IRT.param=FALSE)
+      bx <- as.numeric(coef.ltm(ltmP)[,1])[1:nX]
+      baP <- as.numeric(coef.ltm(ltmP)[,1])[(nX + 1):(nX + nA)]
+      ax <- as.numeric(coef.ltm(ltmP)[,2])[1:nX]
+      aaP <- as.numeric(coef.ltm(ltmP)[,2])[(nX + 1):(nX + nA)]
+      bxltm <- bx
+      baPltm <- baP
+      bx <- -bxltm/ax
+      baP <- -baPltm/aaP
+      N <- dim(P)[1]
+      if(SE) covP <- vcov.ltm(ltmP, robust = robust)
+    } else if(is.list(P)){
+      if(P$IRT.param == T){
+        ax <- P$pars[1:nX,1]
+        bx <- P$pars[1:nX,2]
+        aaP <- P$pars[(nX + 1):(nX + nA),1]
+        baP <- P$pars[(nX + 1):(nX + nA),2]
+        baPltm <- -ax*bx
+        bxltm <- -aaP*baP
+        N <- P$N
+        if(SE) covP <- P$cov
+        ltmP <- NULL
+        P <- matrix(0)
+      } else{  
+        bxltm <- P$pars[1:nX,2]
+        baPltm <- P$pars[(nX + 1):(nX + nA),2]
+        ax <- P$pars[1:nX,1]
+        aaP <- P$pars[(nX + 1):(nX + nA),1]
+        bx <- -bxltm/ax
+        baP <- -baPltm/aaP
+        N <- P$N      
+        if(SE) covP <- P$cov
+        ltmP <- NULL
+        P <- matrix(0)
+      }
+    } else return("Unsupported input. P must be either an object created by the packages ltm or mirt, a matrix of responses or a list with parameters, covariance matrix and sample size.")
+    
+    return(list(bxltm=bxltm, baPltm=baPltm, ax=ax, aaP=aaP, bx=bx, baP=baP, N=N, covP=covP, ltmP=ltmP, P=P, IRT.param=T))
+  }
+  if(model=="3pl"){
+    nX <- length(x) - 1
+    nA <- length(a) - 1
+    if("tpm" %in% class(P)){
+      cx <- as.numeric(coef.tpm(P)[,1])[1:(length(x)-1)]
+      caP <- as.numeric(coef.tpm(P)[,1])[(length(x)):((length(x)+length(a)-2))]
+      bx <- as.numeric(coef.tpm(P)[,2])[1:(length(x)-1)]
+      baP <-  as.numeric(coef.tpm(P)[,2])[(length(x)):((length(x)+length(a)-2))]
+      ax <- as.numeric(coef.tpm(P)[,3])[1:(length(x)-1)]
+      aaP <- as.numeric(coef.tpm(P)[,3])[(length(x)):((length(x)+length(a)-2))]
+      if(P$IRT.param){
+        bxltm <- -ax*bx
+        baPltm <- -aaP*baP
+      } else{
         bxltm <- bx
         baPltm <- baP
         bx <- -bxltm/ax
         baP <- -baPltm/aaP
-        N <- dim(P)[1]
-      } else{
-        return("Unsupported input. P must be either an object created by the package ltm or a matrix of responses.")
       }
+      N <- dim(P$X)[1]
+      ltmP <- P
+      P <- ltmP$X
+      if(SE) covP <- vcov.tpm(ltmP)
+    } else if(class(P) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+      myspP <- extract.mirt(P, "parvec")
+      a <- myspP[seq(1, 3 * (nX + nA), by = 3)]
+      b <- myspP[seq(2, 3 * (nX + nA), by = 3)]
+      cpar <- myspP[seq(3, 3 * (nX + nA), by = 3)]
+      ax <- a[1:nX]
+      bx <- b[1:nX]
+      cx <- cpar[1:nX]
+      aaP <- a[(nX + 1):(nX + nA)]
+      baP <- b[(nX + 1):(nX + nA)]
+      caP <- cpar[(nX + 1):(nX + nA)]
+      if(SE){
+        mycovP <- extract.mirt(P, "vcov")
+        upmat <- cbind(mycovP[seq(3, 3*(nX + nA), by = 3), seq(3, 3*(nX + nA), by = 3)], mycovP[seq(3, 3*(nX + nA), by = 3), seq(2, 3*(nX + nA), by = 3)], mycovP[seq(3, 3*(nX + nA), by = 3), seq(1, 3*(nX + nA), by = 3)])
+        midmat <- cbind(mycovP[seq(2, 3*(nX + nA), by = 3), seq(3, 3*(nX + nA), by = 3)], mycovP[seq(2, 3*(nX + nA), by = 3), seq(2, 3*(nX + nA), by = 3)], mycovP[seq(2, 3*(nX + nA), by = 3), seq(1, 3*(nX + nA), by = 3)])
+        lowmat <- cbind(mycovP[seq(1, 3*(nX + nA), by = 3), seq(3, 3*(nX + nA), by = 3)], mycovP[seq(1, 3*(nX + nA), by = 3), seq(2, 3*(nX + nA), by = 3)], mycovP[seq(1, 3*(nX + nA), by = 3), seq(1, 3*(nX + nA), by = 3)])
+        covP <- rbind(upmat, midmat, lowmat)
+      }
+      bxltm <- bx
+      baPltm <- baP
+      bx <- -bxltm/ax
+      baP <- -baPltm/aaP
+      dataP <- extract.mirt(P, "tabdata")
+      N <- nrow(dataP)
+      ltmP <- P
+      P <- dataP
+    } else return("Unsupported input. P must be either an object created by the packages ltm or mirt, a matrix of responses or a list with parameters, covariance matrix and sample size.")
+    
+    return(list(bxltm=bxltm, baPltm=baPltm, ax=ax, aaP=aaP, bx=bx, baP=baP, cx=cx, caP=caP, N=N, covP=covP, ltmP=ltmP, P=P, IRT.param=T))
+  }
+  
+  
+  if(model %in% c("GPCM")){
+    JX <- length(catsX)
+    JA <- length(catsA)
+    
+    ax <- numeric(JX)
+    bx <- vector("list", JX)
+    aaP <- numeric(JA)
+    baP <- vector("list", JA)
+    
+    if(class(P) == "SingleGroupClass"){
+      for(i in 1:JX){
+        ttpar <- extract.item(P, i)
+        ax[i] <- ttpar@par[1]
+        bx[[i]] <- -(tail(ttpar@par, catsX[i]-1) - c(0, tail(ttpar@par, catsX[i]-1)[-(catsX[i]-1)])) / ax[i]
+      }
+      for(i in 1:JA){
+        ttpar <- extract.item(P, i+JX)
+        aaP[i] <- ttpar@par[1]
+        baP[[i]] <- -(tail(ttpar@par, catsA[i]-1) - c(0, tail(ttpar@par, catsA[i]-1)[-(catsA[i]-1)])) / aaP[i]
+      }
+      dataP <- extract.mirt(P, "tabdata")
+      N <- nrow(dataP)
+      if(SE) covP <- extract.mirt(P, "vcov")
+      ltmP <- P
+      P <- dataP
+    }
+    return(list(ax=ax, aaP=aaP, bx=bx, baP=baP, N=N, covP=covP, ltmP=ltmP, P=P, IRT.param=F))
+  }
+  
+  if(model %in% c("GRM")){
+    JX <- length(catsX)
+    JA <- length(catsA)
+    
+    ax <- numeric(JX)
+    bx <- vector("list", JX)
+    aaP <- numeric(JA)
+    baP <- vector("list", JA)
+    
+    if(class(P) == "SingleGroupClass"){
+      for(i in 1:JX){
+        ttpar <- extract.item(P, i)
+        ax[i] <- ttpar@par[1]
+        bx[[i]] <- -ttpar@par[-1] / ax[i]
+      }
+      for(i in 1:JA){
+        ttpar <- extract.item(P, i+JX)
+        aaP[i] <- ttpar@par[1]
+        baP[[i]] <- -ttpar@par[-1] / aaP[i]
+      }
+      dataP <- extract.mirt(P, "tabdata")
+      N <- nrow(dataP)
+      if(SE) covP <- extract.mirt(P, "vcov")
+      ltmP <- P
+      P <- dataP
     }
     
-    if("ltm" %in% class(Q)){
-      by <- as.numeric(coef.ltm(Q)[,1])[1:(length(y)-1)]
-      baQ <-  as.numeric(coef.ltm(Q)[,1])[(length(y)):((length(y)+length(a)-2))]
-      ay <- as.numeric(coef.ltm(Q)[,2])[1:(length(y)-1)]
-      aaQ <- as.numeric(coef.ltm(Q)[,2])[(length(y)):((length(y)+length(a)-2))]
-      if(Q$IRT.param){
-        byltm <- -ay*by
-        baQltm <- -aaQ*baQ
-      } else{
-        byltm <- by
-        baQltm <- baQ
-        by <- -byltm/ay
-        baQ <- -baQltm/aaQ
+    return(list(ax=ax, aaP=aaP, bx=bx, baP=baP, N=N, covP=covP, ltmP=ltmP, P=P, IRT.param=F))
+  }
+}
+
+irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), model="2pl", catsX = 0, catsY = 0, catsA = 0, see="analytical", replications=50, kernel="gaussian", h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, wpen=0.5, linear=FALSE, slog=1, bunif=1, altopt=FALSE, wS=0.5, eqcoef="mean-mean", robust=FALSE, distribution = list("normal", par = data.frame(mu = 0, sigma = 1))){
+  
+  #P - object from ltm with IRT model for group P, where the first items are main test, the last are the anchor test OR a matrix of responses w/out missing values, rows are individuals, columns are items, the main test first, then the anchor test
+  #Q - equivalent to P, for group Q
+  #x - score points test X
+  #y - score points test Y
+  #a - score points test A
+  #qpoints - quadrature points to be used, if not specified defaults to the quadrature points used in the IRT model 
+  #model - IRT model, "1pl", "2pl", "3pl" (start w/ 2pl)
+  #eqcoef - (PSE only) denotes the method used estimating equating coefficients, "mean-mean", "mean-sigma", "mean-gmean", "Haebara", "Stocking-Lord"
+  #see kequate() for rest args
+  if(design=="CE"){
+    if(model=="2pl"){
+      if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
+      #if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Plist <- irtinput(P, x, a, robust, model) else if(is.matrix(P)){
+        if((length(a)+length(x)-2) != ncol(P)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+        ltmP <- ltm(P ~ z1, IRT.param=FALSE)
+        Plist <- irtinput(ltmP, x, a, robust, model)
       }
-      M <- dim(Q$X)[1]
-      ltmQ <- Q
-      Q <- ltmQ$X
-    } else{
-      if(is.matrix(Q)){
-        if((length(a)+length(y)-2) != ncol(Q))
-          return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+      if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
+      #if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Qlist <- irtinput(Q, y, a, robust, model) else if(is.matrix(P)){
+        if((length(a)+length(x)-2) != ncol(Q)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
         ltmQ <- ltm(Q ~ z1, IRT.param=FALSE)
-        by <- as.numeric(coef.ltm(ltmQ)[,1])[1:(length(y)-1)]
-        baQ <-  as.numeric(coef.ltm(ltmQ)[,1])[(length(y)):((length(y)+length(a)-2))]
-        ay <- as.numeric(coef.ltm(ltmQ)[,2])[1:(length(y)-1)]
-        aaQ <- as.numeric(coef.ltm(ltmQ)[,2])[(length(y)):((length(y)+length(a)-2))]
-        byltm <- by
-        baQltm <- baQ
-        by <- -byltm/ay
-        baQ <- -baQltm/aaQ
-        M <- dim(Q)[1]
-      } else{
-        return("Unsupported input. Q must be either an object created by the package ltm or a matrix of responses.")
-      }
+        Qlist <- irtinput(ltmQ, x, a, robust, model)
+      }  
+      
+      ax <- Plist$ax
+      aaP <- Plist$aaP
+      bxltm <- Plist$bxltm
+      baPltm <- Plist$baPltm
+      bx <- Plist$bx
+      baP <- Plist$baP
+      ltmP <- Plist$ltmP
+      P <- Plist$P
+      N <- Plist$N
+      covalphaP <- Plist$covP
+      
+      ay <- Qlist$ax
+      aaQ <- Qlist$aaP
+      byltm <- Qlist$bxltm
+      baQltm <- Qlist$baPltm
+      by <- Qlist$bx
+      baQ <- Qlist$baP
+      ltmQ <- Qlist$ltmP
+      Q <- Qlist$P
+      M <- Qlist$N
+      covalphaQ <- Qlist$covP
     }
-    }
+    
     
     if(model=="3pl"){
-      if("tpm" %in% class(P)){
-        cx <- as.numeric(coef.tpm(P)[,1])[1:(length(x)-1)]
-        caP <- as.numeric(coef.tpm(P)[,1])[(length(x)):((length(x)+length(a)-2))]
-        bx <- as.numeric(coef.tpm(P)[,2])[1:(length(x)-1)]
-        baP <-  as.numeric(coef.tpm(P)[,2])[(length(x)):((length(x)+length(a)-2))]
-        ax <- as.numeric(coef.tpm(P)[,3])[1:(length(x)-1)]
-        aaP <- as.numeric(coef.tpm(P)[,3])[(length(x)):((length(x)+length(a)-2))]
-        if(P$IRT.param){
-          bxltm <- -ax*bx
-          baPltm <- -aaP*baP
-        } else{
-          bxltm <- bx
-          baPltm <- baP
-          bx <- -bxltm/ax
-          baP <- -baPltm/aaP
-        }
-        N <- dim(P$X)[1]
-        ltmP <- P
-        P <- ltmP$X
+      if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
+      #if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Plist <- irtinput(P, x, a, robust, model) else if(is.matrix(P)){
+        if((length(a)+length(x)-2) != ncol(P)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+        ltmP <- tpm(P, IRT.param=FALSE)
+        Plist <- irtinput(ltmP, x, a, robust, model)
+      }
+      if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
+      #if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Qlist <- irtinput(Q, y,  a, robust, model) else if(is.matrix(P)){
+        if((length(a)+length(x)-2) != ncol(Q)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+        ltmQ <- tpm(Q, IRT.param=FALSE)
+        Qlist <- irtinput(ltmQ, x, a, robust, model)
+      }  
+      
+      ax <- Plist$ax
+      aaP <- Plist$aaP
+      bxltm <- Plist$bxltm
+      baPltm <- Plist$baPltm
+      bx <- Plist$bx
+      baP <- Plist$baP
+      cx <- Plist$cx
+      caP <- Plist$caP
+      ltmP <- Plist$ltmP
+      if(class(ltmP) %in% c("ConfirmatoryClass", "SingleGroupClass")){
+        cxltm <- cx
+        caPltm <- caP
+        cx <- exp(cx) / (1 + exp(cx))
+        caP <- exp(caP) / (1 + exp(caP))
+      }
+      P <- Plist$P
+      N <- Plist$N
+      covalphaP <- Plist$covP
+      
+      ay <- Qlist$ax
+      aaQ <- Qlist$aaP
+      byltm <- Qlist$bxltm
+      baQltm <- Qlist$baPltm
+      by <- Qlist$bx
+      baQ <- Qlist$baP
+      cy <- Qlist$cx
+      caQ <-  Qlist$caP
+      ltmQ <- Qlist$ltmP
+      if(class(ltmQ) %in% c("ConfirmatoryClass", "SingleGroupClass")){
+        cyltm <- cy
+        caQltm <- caQ
+        cy <- exp(cy) / (1 + exp(cy))
+        caQ <- exp(caQ) / (1 + exp(caQ))
+      }
+      Q <- Qlist$P
+      M <- Qlist$N
+      covalphaQ <- Qlist$covP
+    }
+    if(model=="GPCM"){
+
+      JX <- length(catsX)
+      JY <- length(catsY)
+      JA <- length(catsA)
+      kX <- sum(catsX) - JX
+      kY <- sum(catsY) - JY
+      kA <- sum(catsA) - JA
+      gpcmP <- P
+      gpcmQ <- Q
+      #ax, ay vectors of scale parameters for the items
+      #bx, by lists of location parameters, each entry one vector per item
+      ax <- numeric(JX)
+      ay <- numeric(JY)
+      aaP <- numeric(JA)
+      aaQ <- numeric(JA)
+      
+      bx <- vector("list", JX)
+      by <- vector("list", JY)
+      baP <- vector("list", JA) 
+      baQ <- vector("list", JA)
+      
+      if(class(gpcmP) == "gpcm" && class(gpcmQ) == "gpcm"){
+        if(!P$IRT.param || !Q$IRT.param) return("Please fit the IRT models using IRT.param = TRUE.")
+      if(length(unique(c(catsX, catsA)))==1){
+        ax <- coef(gpcmP)[1:JX, catsX[1]]
+        aaP <- coef(gpcmP)[(JX+1):(JX+JA), catsX[1]]
+        for(i in 1:JX) bx[[i]] <- coef(gpcmP)[i,1:(catsX[1] - 1)]
+        for(i in (JX+1):(JX+JA)) baP[[i-JX]] <- coef(gpcmP)[i,1:(catsX[1] - 1)]
       } else{
-        if(is.matrix(P)){
-          if((length(a)+length(x)-2) != ncol(P))
-            return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
-          ltmP <- ltm(P ~ z1, IRT.param=FALSE)
-          cx <- as.numeric(coef.tpm(ltmP)[,1])[1:(length(x)-1)]
-          caP <- as.numeric(coef.tpm(ltmP)[,1])[(length(x)):((length(x)+length(a)-2))]
-          bx <- as.numeric(coef.tpm(ltmP)[,2])[1:(length(x)-1)]
-          baP <- as.numeric(coef.tpm(ltmP)[,2])[(length(x)):((length(x)+length(a)-2))]
-          ax <- as.numeric(coef.tpm(ltmP)[,3])[1:(length(x)-1)]
-          aaP <- as.numeric(coef.tpm(ltmP)[,3])[(length(x)):((length(x)+length(a)-2))]
-          bxltm <- bx
-          baPltm <- baP
-          bx <- -bxltm/ax
-          baP <- -baPltm/aaP
-          N <- dim(P)[1]
-        } else{
-          return("Unsupported input. P must be either an object created by the package ltm or a matrix of responses.")
-        }
+        for(i in 1:JX) ax[i] <- coef(gpcmP)[[i]][catsX[i]]
+        for(i in 1:JX) bx[[i]] <- coef(gpcmP)[[i]][1:(catsX[i]-1)]
+        for(i in (JX+1):(JX+JA)) aaP[i-JX] <- coef(gpcmP)[[i]][catsA[i-JX]]
+        for(i in (JX+1):(JX+JA)) baP[[i-JX]] <- coef(gpcmP)[[i]][1:(catsA[i-JX]-1)]
       }
       
-      if("tpm" %in% class(Q)){
-        cy <- as.numeric(coef.tpm(Q)[,1])[1:(length(y)-1)]
-        caQ <- as.numeric(coef.tpm(Q)[,1])[(length(y)):((length(y)+length(a)-2))]
-        by <- as.numeric(coef.tpm(Q)[,2])[1:(length(y)-1)]
-        baQ <-  as.numeric(coef.tpm(Q)[,2])[(length(y)):((length(y)+length(a)-2))]
-        ay <- as.numeric(coef.tpm(Q)[,3])[1:(length(y)-1)]
-        aaQ <- as.numeric(coef.tpm(Q)[,3])[(length(y)):((length(y)+length(a)-2))]
-        if(Q$IRT.param){
-          byltm <- -ay*by
-          baQltm <- -aaQ*baQ
-        } else{
-          byltm <- by
-          baQltm <- baQ
-          by <- -byltm/ay
-          baQ <- -baQltm/aaQ
-        }
-        M <- dim(Q$X)[1]
-        ltmQ <- Q
-        Q <- ltmQ$X
+      if(length(unique(c(catsY, catsA)))==1){
+        ay <- coef(gpcmQ)[1:JY, catsY[1]]
+        aaQ <- coef(gpcmQ)[(JY+1):(JY+JA), catsY[1]]
+        for(i in 1:JY) by[[i]] <- coef(gpcmQ)[i,1:(catsY[1] - 1)]
+        for(i in (JY+1):(JY+JA)) baQ[[i-JY]] <- coef(gpcmQ)[i,1:(catsY[1] - 1)]
       } else{
-        if(is.matrix(Q)){
-          if((length(a)+length(y)-2) != ncol(Q))
-            return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
-          ltmQ <- tpm(Q, IRT.param=FALSE)
-          cy <- as.numeric(coef.tpm(ltmQ)[,1])[1:(length(y)-1)]
-          caQ <- as.numeric(coef.tpm(ltmQ)[,1])[(length(y)):((length(y)+length(a)-2))]
-          by <- as.numeric(coef.tpm(ltmQ)[,2])[1:(length(y)-1)]
-          baQ <-  as.numeric(coef.tpm(ltmQ)[,2])[(length(y)):((length(y)+length(a)-2))]
-          ay <- as.numeric(coef.tpm(ltmQ)[,3])[1:(length(y)-1)]
-          aaQ <- as.numeric(coef.tpm(ltmQ)[,3])[(length(y)):((length(y)+length(a)-2))]
-          byltm <- by
-          baQltm <- baQ
-          by <- -byltm/ay
-          baQ <- -baQltm/aaQ
-          M <- dim(Q)[1]
-        } else{
-          return("Unsupported input. Q must be either an object created by the package ltm or a matrix of responses.")
-        }
+        for(i in 1:JY) ay[i] <- coef(gpcmQ)[[i]][catsY[i]]
+        for(i in 1:JY) by[[i]] <- coef(gpcmQ)[[i]][1:(catsY[i]-1)]
+        for(i in (JY+1):(JY+JA)) aaQ[i-JY] <- coef(gpcmQ)[[i]][catsA[i-JY]]
+        for(i in (JY+1):(JY+JA)) baQ[[i-JY]] <- coef(gpcmQ)[[i]][1:(catsA[i-JY]-1)]
       }
+      N <- nrow(gpcmP$X)
+      M <- nrow(gpcmQ$X)
+      P <- gpcmP$X
+      Q <- gpcmQ$X
+
+      }
+      if(class(gpcmP) == "SingleGroupClass" && class(gpcmQ) == "SingleGroupClass"){
+        parsP <- irtinput(gpcmP, x, a, robust, model, catsX = catsX, catsA = catsA)
+        parsQ <- irtinput(gpcmQ, y, a, robust, model, catsX = catsY, catsA = catsA)
+        ax <- parsP$ax
+        bx <- parsP$bx
+        aaP <- parsP$aaP
+        baP <- parsP$baP
+        ay <- parsQ$ax
+        by <- parsQ$bx
+        aaQ <- parsQ$aaP
+        baQ <- parsQ$baP
+        N <- parsP$N
+        M <- parsQ$N
+        P <- parsP$P
+        Q <- parsQ$P
+      }
+      ltmP <- gpcmP
+      ltmQ <- gpcmQ
+    }
+    
+    if(model=="GRM"){
+      JX <- length(catsX)
+      JY <- length(catsY)
+      JA <- length(catsA)
+      kX <- sum(catsX) - JX
+      kY <- sum(catsY) - JY
+      kA <- sum(catsA) - JA
+      grmP <- P
+      grmQ <- Q
+      #ax, ay vectors of scale parameters for the items
+      #bx, by lists of location parameters, each entry one vector per item
+      parsP <- irtinput(grmP, x, a, robust, model, catsX = catsX, catsA = catsA)
+      parsQ <- irtinput(grmQ, y, a, robust, model, catsX = catsY, catsA = catsA)
+      ax <- parsP$ax
+      bx <- parsP$bx
+      aaP <- parsP$aaP
+      baP <- parsP$baP
+      ay <- parsQ$ax
+      by <- parsQ$bx
+      aaQ <- parsQ$aaP
+      baQ <- parsQ$baP
+      N <- parsP$N
+      M <- parsQ$N
+      P <- parsP$P
+      Q <- parsQ$P
       
+      ltmP <- grmP
+      ltmQ <- grmQ
     }
     
     if(missing(qpoints))
@@ -818,46 +1134,37 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       irtaP <- probpl(qpoints, baP, model)
       irty <- probpl(qpoints, by, model)
       irtaQ <- probpl(qpoints, baQ, model)
-      #pderX <- pderpl(irtx, qpoints, bx, model)
-      #pderAP <- pderpl(irtaP, qpoints, baP, model)
-      #pderY <- pderpl(irty, qpoints, by, model)
-      #pderAQ <- pderpl(irtaQ, qpoints, baQ, model)
     }
     if(model=="2pl"){
       irtx <- probpl(qpoints, bx, model, a=ax)
       irtaP <- probpl(qpoints, baP, model, a=aaP)
       irty <- probpl(qpoints, by, model, a=ay)
       irtaQ <- probpl(qpoints, baQ, model, a=aaQ)
-      #pderX <- pderpl(irtx, qpoints, bx, model, a=ax)
-      #pderAP <- pderpl(irtaP, qpoints, baP, model, a=aaP)
-      #pderY <- pderpl(irty, qpoints, by, model, a=ay)
-      #pderAQ <- pderpl(irtaQ, qpoints, baQ, model, a=aaQ)
     }
     if(model=="3pl"){
       irtx <- probpl(qpoints, bx, a=ax, c=cx)
       irtaP <- probpl(qpoints, baP, a=aaP, c=caP)
       irty <- probpl(qpoints, by, a=ay, c=cy)
       irtaQ <- probpl(qpoints, baQ, a=aaQ, c=caQ)
-      #pderX <- pderpl(irtx, qpoints, bx, a=ax, c=cx)
-      #pderAP <- pderpl(irtaP, qpoints, baP, a=aaP, c=caP)
-      #pderY <- pderpl(irty, qpoints, by, a=ay, c=cy)
-      #pderAQ <- pderpl(irtaQ, qpoints, baQ, a=aaQ, c=caQ)
     }
-    
-    #irtx <- probpl(qpoints, bx, model, a=ax)
-    #irtaP <- probpl(qpoints, baP, model, a=aaP)
-    #irty <- probpl(qpoints, by, model, a=ay)
-    #irtaQ <- probpl(qpoints, baQ, model, a=aaQ)
-    
-    rP <- LordWW(irtx, qpoints)
-    tP <- LordWW(irtaP, qpoints)
-    sQ <- LordWW(irty, qpoints)
-    tQ <- LordWW(irtaQ, qpoints)
-    
-    #   covprobx <- 
-    #   covprobaP <- 
-    #   covproby <- 
-    #   covprobQ <- 
+    if(model %in% c("GPCM", "GRM")){
+      irtx <- polyprob(ax, bx, catsX, model, qpoints)
+      irty <- polyprob(ay, by, catsY, model, qpoints)
+      irtaP <- polyprob(aaP, baP, catsA, model, qpoints)
+      irtaQ <- polyprob(aaQ, baQ, catsA, model, qpoints)
+    }
+    if(model %in% c("1pl", "2pl", "3pl")){
+      rP <- LordWW(irtx, qpoints)
+      tP <- LordWW(irtaP, qpoints)
+      sQ <- LordWW(irty, qpoints)
+      tQ <- LordWW(irtaQ, qpoints)
+    }
+    if(model %in% c("GRM", "GPCM")){
+      rP <- rowSums(cmnom(catsX, irtx, qpoints))
+      tP <- rowSums(cmnom(catsA, irtaP, qpoints))
+      sQ <- rowSums(cmnom(catsY, irty, qpoints))
+      tQ <- rowSums(cmnom(catsA, irtaQ, qpoints))
+    }
     
     if(kernel=="uniform"){
       ulimit<-(1/(2*bunif*(1-0.61803)))
@@ -896,10 +1203,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           hxP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
       else{
         if(KPEN==0)
-          hxP<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
       } else{
@@ -910,10 +1217,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           hyQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
       else{
         if(KPEN==0)
-          hyQ<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
       } else{
@@ -924,10 +1231,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           haP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varaP)
       else{
         if(KPEN==0)
-          haP<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          haPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
       } else{
@@ -938,10 +1245,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           haQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(varaQ)
       else{
         if(KPEN==0)
-          haQ<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          haQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
       }
@@ -994,99 +1301,111 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       
     } else{
       if(model=="1pl"){
-        #irtx <- probpl(qpoints, bx, model)
-        #irtaP <- probpl(qpoints, baP, model)
-        #irty <- probpl(qpoints, by, model)
-        #irtaQ <- probpl(qpoints, baQ, model)
         pderX <- pderpl(irtx, qpoints, bx, model)
         pderAP <- pderpl(irtaP, qpoints, baP, model)
         pderY <- pderpl(irty, qpoints, by, model)
         pderAQ <- pderpl(irtaQ, qpoints, baQ, model)
       }
       if(model=="2pl"){
-        #irtx <- probpl(qpoints, bx, model, a=ax)
-        #irtaP <- probpl(qpoints, baP, model, a=aaP)
-        #irty <- probpl(qpoints, by, model, a=ay)
-        #irtaQ <- probpl(qpoints, baQ, model, a=aaQ)
         pderX <- pderpl(irtx, qpoints, bx, model, a=ax)
         pderAP <- pderpl(irtaP, qpoints, baP, model, a=aaP)
         pderY <- pderpl(irty, qpoints, by, model, a=ay)
         pderAQ <- pderpl(irtaQ, qpoints, baQ, model, a=aaQ)
-        covalphaP <- vcov.ltm(ltmP, robust=robust)
-        covalphaQ <- vcov.ltm(ltmQ, robust=robust)
         adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, aa=aaP, bxltm=bxltm, baltm=baPltm), design, model="2pl")
         adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, aa=aaQ, bxltm=byltm, baltm=baQltm), design, model="2pl")
       }
       if(model=="3pl"){
-        #irtx <- probpl(qpoints, bx, a=ax, c=cx)
-        #irtaP <- probpl(qpoints, baP, a=aaP, c=caP)
-        #irty <- probpl(qpoints, by, a=ay, c=cy)
-        #irtaQ <- probpl(qpoints, baQ, a=aaQ, c=caQ)
         pderX <- pderpl(irtx, qpoints, bx, a=ax, c=cx)
         pderAP <- pderpl(irtaP, qpoints, baP, a=aaP, c=caP)
         pderY <- pderpl(irty, qpoints, by, a=ay, c=cy)
         pderAQ <- pderpl(irtaQ, qpoints, baQ, a=aaQ, c=caQ)
-        covalphaP <- vcov.tpm(ltmP)
-        covalphaQ <- vcov.tpm(ltmQ)
         adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, aa=aaP, bxltm=bxltm, baltm=baPltm), design, model="3pl")
         adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, aa=aaQ, bxltm=byltm, baltm=baQltm), design, model="3pl")
+        
+        if(class(ltmP) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+          vectadj <- rep(1, 3 * (length(a) + length(x)-2))
+          vectadj[1:(length(a) + length(x)-2)] <- exp(c(cxltm, caPltm)) / (1 + exp(c(cxltm, caPltm)))^2
+          adjcovalphaP <- diag(vectadj) %*% adjcovalphaP %*% t(diag(vectadj))
+          vectadj <- rep(1, 3 * (length(a) + length(x)-2))
+          vectadj[1:(length(a) + length(x)-2)] <- exp(c(cyltm, caQltm)) / (1 + exp(c(cyltm, caQltm)))^2
+          adjcovalphaQ <- diag(vectadj) %*% adjcovalphaQ %*% t(diag(vectadj))
+        } 
+
+      }
+          
+      if(model %in% c("GPCM", "GRM")){
+        pderX <- polypderpl(ax, bx, catsX, irtx, model, qpoints, qpoints)
+        pderAP <- polypderpl(aaP, baP, catsA, irtaP, model, qpoints, qpoints)
+        pderY <- polypderpl(ay, by, catsY, irty, model, qpoints, qpoints)
+        pderAQ <- polypderpl(aaQ, baQ, catsA, irtaQ, model, qpoints, qpoints)
+        
+        pdermatX <- matrix(0, nrow = kX + 1, ncol = sum(catsX))
+        pdermatAP <- matrix(0, nrow = kA + 1, ncol = sum(catsA))
+        pdermatY <- matrix(0, nrow = kY + 1, ncol = sum(catsY))
+        pdermatAQ <- matrix(0, nrow = kA + 1, ncol = sum(catsA))
+        
+        for(i in 1:(kX + 1)){
+          pdermatX[i, 1:catsX[1]] <- pderX[[i]][[1]]
+          for(j in 2:JX){
+            pdermatX[i, (sum(catsX[1:(j - 1)]) + 1):sum(catsX[1:j])] <- pderX[[i]][[j]]
+          }
+        }
+        
+        for(i in 1:(kA + 1)){
+          pdermatAP[i, 1:catsA[1]] <- pderAP[[i]][[1]]
+          if(JA>1){
+          for(j in 2:JA){
+            pdermatAP[i, (sum(catsA[1:(j - 1)]) + 1):sum(catsA[1:j])] <- pderAP[[i]][[j]]
+          }
+          }
+        }
+        
+        for(i in 1:(kY + 1)){
+          pdermatY[i, 1:catsY[1]] <- pderY[[i]][[1]]
+          for(j in 2:JY){
+            pdermatY[i, (sum(catsY[1:(j - 1)]) + 1):sum(catsY[1:j])] <- pderY[[i]][[j]]
+          }
+        }
+        
+        for(i in 1:(kA + 1)){
+          pdermatAQ[i, 1:catsA[1]] <- pderAQ[[i]][[1]]
+          if(JA>1){
+          for(j in 2:JA){
+            pdermatAQ[i, (sum(catsA[1:(j - 1)]) + 1):sum(catsA[1:j])] <- pderAQ[[i]][[j]]
+          }
+          }
+        }
+        if(model== "GPCM"){
+          if(class(ltmP) == "gpcm" && class(ltmQ) == "gpcm"){
+            covalphaP <- vcov.gpcm(ltmP, robust=robust)
+            covalphaQ <- vcov.gpcm(ltmQ, robust=robust)
+            adjcovalphaP <- covalphaP
+            adjcovalphaQ <- covalphaQ
+          }
+          if(class(ltmP) == "SingleGroupClass" && class(ltmQ) == "SingleGroupClass"){
+            covalphaP <- extract.mirt(ltmP, "vcov")
+            covalphaQ <- extract.mirt(ltmQ, "vcov")            
+            adjderP <- adjgpcmmirt(ltmP)
+            adjderQ <- adjgpcmmirt(ltmQ)
+            adjcovalphaP <- t(adjderP) %*% covalphaP %*% adjderP
+            adjcovalphaQ <- t(adjderQ) %*% covalphaQ %*% adjderQ
+          }
+        }
+        if(model=="GRM"){
+          covalphaP <- extract.mirt(grmP, "vcov")
+          covalphaQ <- extract.mirt(grmQ, "vcov")   
+          adjderP <- adjgrmmirt(grmP)
+          adjderQ <- adjgrmmirt(grmQ)
+          adjcovalphaP <- t(adjderP) %*% covalphaP %*% adjderP
+          adjcovalphaQ <- t(adjderQ) %*% covalphaQ %*% adjderQ
+        }
       }
     }
-
-    
-#    pderltmP <- matrix(0, nrow=2*(length(ax)+length(aaP)), ncol=2*(length(ax)+length(aaP)))
-#    pderltmQ <- matrix(0, nrow=2*(length(ay)+length(aaQ)), ncol=2*(length(ay)+length(aaQ)))
-    
-    #print(bx)
-    #print(aaP)
-#     
-#     for(i in 1:(length(ax))){
-#       pderltmP[i,i] <- -1/ax[i]
-#     }
-#     for(i in (length(ax)+1):(length(ax)+length(aaP))){
-#       pderltmP[i,i] <- -1/aaP[i-length(ax)]
-#     }
-#     
-#     for(i in (length(ax)+length(aaP)+1):(2*length(ax)+length(aaP))){
-#       pderltmP[i,i-length(aaP)-length(ax)] <- bxltm[i-length(ax)-length(aaP)]/(ax[i-length(ax)-length(aaP)])^2
-#       pderltmP[i,i] <- 1
-#     }
-#     
-#     for(i in (2*length(ax)+length(aaP)+1):(2*(length(ax)+length(aaP)))){
-#       pderltmP[i,i-length(aaP)-length(ax)] <- baPltm[i-2*length(ax)-length(aaP)]/(aaP[i-2*length(ax)-length(aaP)])^2
-#       pderltmP[i,i] <- 1
-#     }
-#     
-#     for(i in 1:(length(ay))){
-#       pderltmQ[i,i] <- -1/ay[i]
-#     }
-#     
-#     for(i in (length(ay)+1):(length(ay)+length(aaQ))){
-#       pderltmQ[i,i] <- -1/aaQ[i-length(ay)]
-#     }
-#     
-#     for(i in (length(ay)+length(aaQ)+1):(2*length(ay)+length(aaQ))){
-#       pderltmQ[i,i-length(ay)-length(aaQ)] <- byltm[i-length(ay)-length(aaQ)]/(ay[i-length(ay)-length(aaQ)])^2
-#       pderltmQ[i,i] <- 1
-#     }
-#     
-#     for(i in (2*length(ay)+length(aaQ)+1):(2*(length(ay)+length(aaQ)))){
-#       pderltmQ[i,i-length(ay)-length(aaQ)] <- baQltm[i-2*length(ay)-length(aaQ)]/(aaQ[i-2*length(ay)-length(aaQ)])^2
-#       pderltmQ[i,i] <- 1
-#     }
-    
-    #print(pderltmP)
-    #print(pderltmQ)
 
     cdfxP <- cdf(rP, hxP, meanx, varx, kernel, slog, bunif)
     cdfyQ <- cdf(sQ, hyQ, meany, vary, kernel, slog, bunif)
     cdfaP <- cdf(tP, haP, meanaP, varaP, kernel, slog, bunif)
     cdfaQ <- cdf(tQ, haQ, meanaQ, varaQ, kernel, slog, bunif)
-    
-    #Cp <- cmatrixSG(as.vector(P), DMP, N)
-    #Cq <- cmatrixSG(as.vector(Q), DMQ, M)
-    #Want to link tests X and A (not equal length)
-    #Want to find the values of the continuized cdf for A on Q for the "linked" values from X to A on P.
     
     eAx<-eqinvCE(cdfxP, tP, x, a, varaP, meanaP, haP, kernel, slog, bunif)		  #Linked scores from X to A on P
     cdfeAxQ<-cdfce(tQ, haQ, meanaQ, varaQ, eAx, a, kernel, slog, bunif)		  #cdf of the linked values on Q
@@ -1146,16 +1465,8 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
     PRE <- data.frame(PREAx, PREYa)
     h <- data.frame(hxP, hyQ, haP, haQ, hxPlin, hyQlin, haPlin, haQlin)
     
-    #print(pderltmP)
-    #print(sqrt(diag(adjcovalphaP)))
-    #print(sqrt(diag(adjcovalphaQ)))
-    cholalphaPQ <- matrix(0, nrow=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]), ncol=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]))
-    cholalphaPQ[1:dim(adjcovalphaP)[1],1:dim(adjcovalphaP)[1]] <- chol(adjcovalphaP)
-    cholalphaPQ[(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]),(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1])]<- chol(adjcovalphaQ)
-    #covmatPQ <- matrix(0, nrow=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]), ncol=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]))
-    #covmatPQ[1:dim(adjcovalphaP)[1],1:dim(adjcovalphaP)[1]] <- adjcovalphaP
-    #covmatPQ[(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]),(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1])] <- adjcovalphaQ
-    
+    adjcovalphaPQ <- cbind(rbind(adjcovalphaP, matrix(0, nrow=nrow(adjcovalphaP), ncol=ncol(adjcovalphaP))), rbind(matrix(0, nrow=nrow(adjcovalphaQ), ncol=ncol(adjcovalphaQ)), adjcovalphaQ))
+                             
     kX <- length(x)-1
     kA <-  length(a)-1
     kY <- length(y)-1
@@ -1174,7 +1485,6 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       Jalpha[(2*kX+3*kA+2*kY+1):(2*kX+4*kA+2*kY),(kX+kA+kY+4):(kX+2*kA+kY+4)] <- pderAQ[(kA+1):(2*kA),]
     }
     
-    #check order of 3pl pders, fix, be done
     if(model=="3pl"){
       Jalpha <- matrix(0, nrow=3*(kY+2*kA+kX), ncol=(kX+2*kA+kY+4))
       Jalpha[1:kX, 1:(kX+1)] <- pderX[1:kX,]
@@ -1191,25 +1501,20 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       Jalpha[(3*kX+5*kA+2*kY+1):(3*kX+5*kA+3*kY),(kX+kA+3):(kX+kA+kY+3)] <- pderY[(2*kY+1):(3*kY),]
       Jalpha[(3*kX+5*kA+3*kY+1):(3*kX+6*kA+3*kY),(kX+kA+kY+4):(kX+2*kA+kY+4)] <- pderAQ[(2*kA+1):(3*kA),]
     }
-    #print(dim(JeYCE))
-    #print(dim(Jalpha))
-    #print(JeYCE)
-    #print(Jalpha)
-    #print(c(rP, tP, sQ, tQ))
-    #print(sqrt(diag(t(Jalpha) %*% t(cholalphaPQ) %*% cholalphaPQ %*% Jalpha)))
-    #SEEYx <- numeric(length(x))
-    #SEEYxmat <- t(JeYCE) %*% Jalpha %*% cholalphaPQ %*% t
+
+    if(model %in% c("GPCM","GRM")){
+      Jalpha <- matrix(0, nrow=(kX+2*kA+kY+4), ncol=sum(catsX) + sum(catsY) + 2 * sum(catsA))
+      Jalpha[1:(kX+1), 1:(sum(catsX))] <- pdermatX 
+      Jalpha[(kX+2):(kX+kA+2), (sum(catsX)+1):(sum(catsX)+sum(catsA))] <- pdermatAP
+      Jalpha[(kX+kA+3):(kX+kA+kY+3), (sum(catsX)+sum(catsA)+1):(sum(catsX)+sum(catsA)+sum(catsY))] <- pdermatY 
+      Jalpha[(kX+kA+kY+4):(kX+2*kA+kY+4), (sum(catsX)+sum(catsA)+sum(catsY)+1):(sum(catsX)+2*sum(catsA)+sum(catsY))] <- pdermatAQ
+      Jalpha <- t(Jalpha)
+    }
     pdereqYx <- JeYCE %*% t(Jalpha)
-    coveqYx <- pdereqYx %*% t(cholalphaPQ) %*% cholalphaPQ %*% t(pdereqYx)
-    #return(eYCEeAx)
+    coveqYx <- pdereqYx %*% adjcovalphaPQ %*% t(pdereqYx)
     output<-data.frame(eqYx=eYCEeAx, SEEYx=sqrt(diag(coveqYx)))
-    #return(list(equating=output, coveqYx=coveqYx)) 
-    out<-new("keout", coveqYx=coveqYx, pdereqYx=pdereqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE CE", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
+    out<-new("keout", coveqYx=coveqYx, pdereqYx=pdereqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N, covrs = t(Jalpha) %*% adjcovalphaPQ %*% (Jalpha)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE CE", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
     return(out)
-    #SEEYxmat <- 
-    #SEEYxmat[,1:dim(Up)[2]] <- (HqprimeY/GprimeY)*(1/HpprimeA)*(dFdrPeA%*%Up-dHpdtPeA%*%Vp)                                            #Fill matrix
-    #SEEYxmat[,(dim(Up)[2]+1):(dim(Up)[2]+dim(Uq)[2])] <- (1/GprimeY)*(dHqdteY%*%Vq-dGdseY%*%Uq)
-    
   }
   if(design=="EG"){
     if(model=="2pl"){
@@ -1335,6 +1640,103 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       irtx <- probpl(qpoints, bx, a=ax, c=cx)
       irty <- probpl(qpoints, by, a=ay, c=cy)
     }
+
+    if(model=="GPCM"){
+      JX <- length(catsX)
+      JY <- length(catsY)
+      kX <- sum(catsX) - JX
+      kY <- sum(catsY) - JY
+      gpcmP <- P
+      gpcmQ <- Q
+      #ax, ay vectors of scale parameters for the items
+      #bx, by lists of location parameters, each entry one vector per item
+      ax <- numeric(JX)
+      ay <- numeric(JY)
+      bx <- vector("list", JX)
+      by <- vector("list", JY)
+      if(class(gpcmP) == "gpcm" && class(gpcmQ) == "gpcm"){
+        if(!P$IRT.param || !Q$IRT.param) return("Please fit the IRT models using IRT.param = TRUE.")
+        if(length(unique(catsX))==1){
+          ax <- coef(gpcmP)[, catsX[1]]
+          for(i in 1:JX) bx[[i]] <- coef(gpcmP)[i,1:(catsX[1] - 1)]
+        } else{
+          for(i in 1:JX) ax[i] <- coef(gpcmP)[[i]][catsX[i]]
+          for(i in 1:JX) bx[[i]] <- coef(gpcmP)[[i]][1:(catsX[i]-1)]
+        }
+        if(length(unique(catsY))==1){
+          ay <- coef(gpcmQ)[, catsY[1]]
+          for(i in 1:JY) by[[i]] <- coef(gpcmQ)[i,1:(catsY[1] - 1)]
+        } else{
+          for(i in 1:JY) ay[i] <- coef(gpcmQ)[[i]][catsY[i]]
+          for(i in 1:JY) by[[i]] <- coef(gpcmQ)[[i]][1:(catsY[i]-1)]
+        }
+        N <- nrow(gpcmP$X)
+        M <- nrow(gpcmQ$X)
+        P <- gpcmP$X
+        Q <- gpcmQ$X
+      }
+      if(class(gpcmP) == "SingleGroupClass" && class(gpcmQ) == "SingleGroupClass"){
+        for(i in 1:JX){
+          ttpar <- extract.item(gpcmP, i)
+          ax[i] <- ttpar@par[1]
+          bx[[i]] <- -(tail(ttpar@par, catsX[i]-1) - c(0, tail(ttpar@par, catsX[i]-1)[-(catsX[i]-1)])) / ax[i]
+        }
+        for(i in 1:JY){
+          ttpar <- extract.item(gpcmQ, i)
+          ay[i] <- ttpar@par[1]
+          by[[i]] <- -(tail(ttpar@par, catsY[i]-1) - c(0, tail(ttpar@par, catsY[i]-1)[-(catsY[i]-1)])) / ay[i]
+        }
+        dataP <- extract.mirt(gpcmP, "tabdata")
+        dataQ <- extract.mirt(gpcmQ, "tabdata")
+        N <- nrow(dataP)
+        M <- nrow(dataQ)
+        P <- dataP
+        Q <- dataQ
+      }
+      
+      ltmP <- gpcmP
+      ltmQ <- gpcmQ
+      irtx <- polyprob(ax, bx, catsX, model, qpoints)
+      irty <- polyprob(ay, by, catsY, model, qpoints)
+    }
+    if(model=="GRM"){
+      JX <- length(catsX)
+      JY <- length(catsY)
+      kX <- sum(catsX) - JX
+      kY <- sum(catsY) - JY
+      grmP <- P
+      grmQ <- Q
+      #ax, ay vectors of scale parameters for the items
+      #bx, by lists of location parameters, each entry one vector per item
+      ax <- numeric(JX)
+      ay <- numeric(JY)
+      bx <- vector("list", JX)
+      by <- vector("list", JY)
+
+      for(i in 1:JX){
+        ttpar <- extract.item(grmP, i)
+        ax[i] <- ttpar@par[1]
+        bx[[i]] <- -ttpar@par[-1] / ax[i]
+      }
+      
+      for(i in 1:JX){
+        ttpar <- extract.item(grmQ, i)
+        ay[i] <- ttpar@par[1]
+        by[[i]] <- -ttpar@par[-1] / ay[i]
+      }
+      
+      dataP <- extract.mirt(grmP, "tabdata")
+      dataQ <- extract.mirt(grmQ, "tabdata")
+      N <- nrow(dataP)
+      M <- nrow(dataQ)
+      P <- dataP
+      Q <- dataQ
+      ltmP <- grmP
+      ltmQ <- grmQ
+      irtx <- polyprob(ax, bx, catsX, model, qpoints)
+      irty <- polyprob(ay, by, catsY, model, qpoints)
+    }
+    
      if(see=="bootstrap"){
       if(model=="2pl"){
         bootsee <- matrix(0, nrow=replications, ncol=length(x))
@@ -1356,22 +1758,6 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           bootsee[i,] <- irtoseeq(ltmPboot, ltmQboot, x, y, a, qpoints, N, M, model, design, kernel, slog, bunif, KPEN, wpen, linear, altopt, h=h, hlin=hlin)
         }
       }
-#       
-#       cdfxP <- cdf(rP, hxP, meanx, varx, kernel, slog, bunif)
-#       cdfyQ <- cdf(sQ, hyQ, meany, vary, kernel, slog, bunif)
-#       cdfaP <- cdf(tP, haP, meanaP, varaP, kernel, slog, bunif)
-#       cdfaQ <- cdf(tQ, haQ, meanaQ, varaQ, kernel, slog, bunif)
-#       eAx<-eqinvCE(cdfxP, tP, x, a, varaP, meanaP, haP, kernel, slog, bunif)      #Linked scores from X to A on P
-#       cdfeAxQ<-cdfce(tQ, haQ, meanaQ, varaQ, eAx, a, kernel, slog, bunif)		  #cdf of the linked values on Q
-#       eYCEeAx<-eqinvCE(cdfeAxQ, sQ, x, y, vary, meany, hyQ, kernel, slog, bunif)	#from eAx on Q to Y
-#       eYa <- eqinvCE(cdfaQ, sQ, x, y, vary, meany, hyQ, kernel, slog, bunif)
-#       PREAx <- PREp(eAx, a, rP, tP)
-#       PREYa <- PREp(eYa, y, tQ, sQ)
-#       PRE <- data.frame(PREAx, PREYa)
-#       h <- data.frame(hxP, hyQ, haP, haQ, hxPlin, hyQlin, haPlin, haQlin)
-#       equating <- data.frame(eqYx=eYCEeAx, SEEYx=apply(bootsee, 2, sd))
-#       out<-new("keout", Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE CE", equating=equating, irt=list(ltmP=ltmP, ltmQ=ltmQ), see=see, replications=replications)
-#       return(out)
       r <- LordWW(irtx, qpoints)
       s <- LordWW(irty, qpoints)
       if(kernel=="uniform"){
@@ -1400,10 +1786,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
             hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
           } else{
             if(KPEN==0){
-              hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+              hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
             } else{
-              hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-              hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+              hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+              hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
             }
           }
         }
@@ -1412,10 +1798,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
             hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
           } else{
             if(KPEN==0){
-              hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+              hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
             } else{
-              hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-              hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+              hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+              hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
             }
           }
         }
@@ -1453,10 +1839,73 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
         adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, bxltm=bxltm), design, model="3pl")
         adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, bxltm=byltm), design, model="3pl")
       }
+      if(model=="GPCM"){
+        pderX <- polypderpl(ax, bx, catsX, irtx, model, qpoints, qpoints)
+        pderY <- polypderpl(ay, by, catsY, irty, model, qpoints, qpoints)
+        pdermatX <- matrix(0, nrow = kX + 1, ncol = sum(catsX))
+        pdermatY <- matrix(0, nrow = kY + 1, ncol = sum(catsY))
+        
+        for(i in 1:(kX + 1)){
+          pdermatX[i, 1:catsX[1]] <- pderX[[i]][[1]]
+          for(j in 2:JX){
+            pdermatX[i, (sum(catsX[1:(j - 1)]) + 1):sum(catsX[1:j])] <- pderX[[i]][[j]]
+          }
+        }
+        
+        for(i in 1:(kY + 1)){
+          pdermatY[i, 1:catsY[1]] <- pderY[[i]][[1]]
+          for(j in 2:JY){
+            pdermatY[i, (sum(catsY[1:(j - 1)]) + 1):sum(catsY[1:j])] <- pderY[[i]][[j]]
+          }
+        }
+        if(class(ltmP) == "gpcm" && class(ltmQ) == "gpcm"){
+          covalphaP <- vcov.gpcm(ltmP, robust=robust)
+          covalphaQ <- vcov.gpcm(ltmQ, robust=robust)
+          adjcovalphaP <- covalphaP
+          adjcovalphaQ <- covalphaQ
+        }
+        if(class(ltmP) == "SingleGroupClass" && class(ltmQ) == "SingleGroupClass"){
+          covalphaP <- extract.mirt(ltmP, "vcov")
+          covalphaQ <- extract.mirt(ltmQ, "vcov")
+          adjderP <- adjgpcmmirt(ltmP)
+          adjderQ <- adjgpcmmirt(ltmQ)
+          adjcovalphaP <- t(adjderP) %*% covalphaP %*% adjderP
+          adjcovalphaQ <- t(adjderQ) %*% covalphaQ %*% adjderQ
+        }
+      }
+      if(model=="GRM"){
+        pderX <- polypderpl(ax, bx, catsX, irtx, model, qpoints, qpoints)
+        pderY <- polypderpl(ay, by, catsY, irty, model, qpoints, qpoints)
+        pdermatX <- matrix(0, nrow = kX + 1, ncol = sum(catsX))
+        pdermatY <- matrix(0, nrow = kY + 1, ncol = sum(catsY))
+        for(i in 1:(kX + 1)){
+          pdermatX[i, 1:catsX[1]] <- pderX[[i]][[1]]
+          for(j in 2:JX){
+            pdermatX[i, (sum(catsX[1:(j - 1)]) + 1):sum(catsX[1:j])] <- pderX[[i]][[j]]
+          }
+        }
+        for(i in 1:(kY + 1)){
+          pdermatY[i, 1:catsY[1]] <- pderY[[i]][[1]]
+          for(j in 2:JY){
+            pdermatY[i, (sum(catsY[1:(j - 1)]) + 1):sum(catsY[1:j])] <- pderY[[i]][[j]]
+          }
+        }
+        covalphaP <- extract.mirt(grmP, "vcov")
+        covalphaQ <- extract.mirt(grmQ, "vcov")
+        adjderP <- adjgrmmirt(grmP)
+        adjderQ <- adjgrmmirt(grmQ)
+        adjcovalphaP <- t(adjderP) %*% covalphaP %*% adjderP
+        adjcovalphaQ <- t(adjderQ) %*% covalphaQ %*% adjderQ
+      }
     }
+
     if(model %in% c("1pl", "2pl", "3pl")){
       r <- LordWW(irtx, qpoints)
       s <- LordWW(irty, qpoints)
+    }
+    if(model %in% c("GPCM", "GRM")){
+      r <- rowSums(cmnom(catsX, irtx, qpoints))
+      s <- rowSums(cmnom(catsY, irty, qpoints))
     }
     
     if(kernel=="uniform"){
@@ -1485,10 +1934,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
         } else{
             if(KPEN==0){
-              hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+              hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
             } else{
-            hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
       } else{
@@ -1499,10 +1948,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
         } else{
           if(KPEN==0){
-            hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           } else{
-            hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
       } else{
@@ -1519,14 +1968,8 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
     PRE<-data.frame(PREYx)
     h<-data.frame(hx, hy)
     
-    #if(irtx!=0 && irty!=0){
-    #  irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
-    #}
-    
     gprimeY<-densityeq(s, hy, vary, meany, eqYx, y, kernel, slog, bunif)							#G' for eY
     fprimeY<-densityeq(r, hx, varx, meanx, x, x, kernel, slog, bunif)							#F' for eY
-    #gprimeX<-densityeq(s, hy, vary, meany, y, y)
-    #fprimeX<-densityeq(r, hx, varx, meanx, eqXy, x)
     
     if(altopt){
       altfprim <- altoptdensity(r, hx, varx, meanx, x, x)
@@ -1544,10 +1987,8 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
     JeY[,1:(length(x))] <- dFdreYEG
     JeY[,(length(x)+1):(length(x)+length(y))] <- -dGdseYEG
     JeY <- (1/gprimeY)*JeY
-    cholalphaPQ <- matrix(0, nrow=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]), ncol=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]))
-    cholalphaPQ[1:dim(adjcovalphaP)[1],1:dim(adjcovalphaP)[1]] <- chol(adjcovalphaP)
-    cholalphaPQ[(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]),(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1])]<- chol(adjcovalphaQ)
-    
+    adjcovalphaPQ <- cbind(rbind(adjcovalphaP, matrix(0, nrow=nrow(adjcovalphaP), ncol=ncol(adjcovalphaP))), rbind(matrix(0, nrow=nrow(adjcovalphaQ), ncol=ncol(adjcovalphaQ)), adjcovalphaQ))
+
     kX <- length(x)-1
     kY <- length(y)-1
     
@@ -1561,173 +2002,164 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       Jalpha[1:(3*kX), 1:(kX+1)] <- pderX
       Jalpha[(3*kX+1):(3*kX+3*kY),(kX+2):(kX+kY+2)] <- pderY
     }
+    if(model %in% c("GPCM", "GRM")){
+      Jalpha <- matrix(0, nrow=(kX+kY+2), ncol=sum(catsX) + sum(catsY))
+      Jalpha[1:(kX+1), 1:(sum(catsX))] <- pdermatX 
+      Jalpha[(kX+2):(kX+kY+2), (sum(catsX)+1):(sum(catsX)+sum(catsY))] <- pdermatY
+      Jalpha <- t(Jalpha)
+    }
     
     pdereqYx <- JeY %*% t(Jalpha)
-    coveqYx <- pdereqYx %*% t(cholalphaPQ) %*% cholalphaPQ %*% t(pdereqYx)
-    #return(eYCEeAx)
+    coveqYx <- pdereqYx %*% adjcovalphaPQ %*% t(pdereqYx)
     output <- data.frame(eqYx=eqYx, SEEYx=sqrt(diag(coveqYx)))
-    #return(list(equating=output, coveqYx=coveqYx)) 
-    out <- new("keout", coveqYx=coveqYx, pdereqYx=pdereqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=r, cdfx=cdfx), Y=data.frame(y, s=s, cdfy=cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE EG", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
+    out <- new("keout", coveqYx=coveqYx, pdereqYx=pdereqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=r, cdfx=cdfx), Y=data.frame(y, s=s, cdfy=cdfy), M=M, N=N, covrs = t(Jalpha) %*% adjcovalphaPQ %*% (Jalpha)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE EG", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
     return(out)
     
   } 
   if(design=="PSE"){
     if(model=="2pl"){
-      if("ltm" %in% class(P)){
-        bx <- as.numeric(coef.ltm(P)[,1])[1:(length(x)-1)]
-        baP <- as.numeric(coef.ltm(P)[,1])[(length(x)):((length(x)+length(a)-2))]
-        ax <- as.numeric(coef.ltm(P)[,2])[1:(length(x)-1)]
-        aaP <- as.numeric(coef.ltm(P)[,2])[(length(x)):((length(x)+length(a)-2))]
-        if(P$IRT.param){
-          bxltm <- -ax*bx
-          baPltm <- -aaP*baP
-        } else{
-          bxltm <- bx
-          baPltm <- baP
-          bx <- -bxltm/ax
-          baP <- -baPltm/aaP
-        }
-        N <- dim(P$X)[1]
-        ltmP <- P
-        P <- ltmP$X
-      } else{
-        if(is.matrix(P)){
-          if((length(a)+length(x)-2) != ncol(P))
-            return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
-          ltmP <- ltm(P ~ z1, IRT.param=FALSE)
-          bx <- as.numeric(coef.ltm(ltmP)[,1])[1:(length(x)-1)]
-          baP <- as.numeric(coef.ltm(ltmP)[,1])[(length(x)):((length(x)+length(a)-2))]
-          ax <- as.numeric(coef.ltm(ltmP)[,2])[1:(length(x)-1)]
-          aaP <- as.numeric(coef.ltm(ltmP)[,2])[(length(x)):((length(x)+length(a)-2))]
-          bxltm <- bx
-          baPltm <- baP
-          bx <- -bxltm/ax
-          baP <- -baPltm/aaP
-          N <- dim(P)[1]
-        } else{
-          return("Unsupported input. P must be either an object created by the package ltm or a matrix of responses.")
-        }
+      if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
+        if((length(a)+length(x)-2) != ncol(P)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+        ltmP <- ltm(P ~ z1, IRT.param=FALSE)
+        Plist <- irtinput(ltmP, x, a, robust, model)
       }
+      if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
+        if((length(a)+length(x)-2) != ncol(Q)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+        ltmQ <- ltm(Q ~ z1, IRT.param=FALSE)
+        Qlist <- irtinput(ltmQ, x, a, robust, model)
+      }  
+            
+      ax <- Plist$ax
+      aaP <- Plist$aaP
+      bxltm <- Plist$bxltm
+      baPltm <- Plist$baPltm
+      bx <- Plist$bx
+      baP <- Plist$baP
+      ltmP <- Plist$ltmP
+      P <- Plist$P
+      N <- Plist$N
+      covalphaP <- Plist$covP
       
-      if("ltm" %in% class(Q)){
-        by <- as.numeric(coef.ltm(Q)[,1])[1:(length(y)-1)]
-        baQ <-  as.numeric(coef.ltm(Q)[,1])[(length(y)):((length(y)+length(a)-2))]
-        ay <- as.numeric(coef.ltm(Q)[,2])[1:(length(y)-1)]
-        aaQ <- as.numeric(coef.ltm(Q)[,2])[(length(y)):((length(y)+length(a)-2))]
-        if(Q$IRT.param){
-          byltm <- -ay*by
-          baQltm <- -aaQ*baQ
-        } else{
-          byltm <- by
-          baQltm <- baQ
-          by <- -byltm/ay
-          baQ <- -baQltm/aaQ
-        }
-        M <- dim(Q$X)[1]
-        ltmQ <- Q
-        Q <- ltmQ$X
-      } else{
-        if(is.matrix(Q)){
-          if((length(a)+length(y)-2) != ncol(Q))
-            return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
-          ltmQ <- ltm(Q ~ z1, IRT.param=FALSE)
-          by <- as.numeric(coef.ltm(ltmQ)[,1])[1:(length(y)-1)]
-          baQ <-  as.numeric(coef.ltm(ltmQ)[,1])[(length(y)):((length(y)+length(a)-2))]
-          ay <- as.numeric(coef.ltm(ltmQ)[,2])[1:(length(y)-1)]
-          aaQ <- as.numeric(coef.ltm(ltmQ)[,2])[(length(y)):((length(y)+length(a)-2))]
-          byltm <- by
-          baQltm <- baQ
-          by <- -byltm/ay
-          baQ <- -baQltm/aaQ
-          M <- dim(Q)[1]
-        } else{
-          return("Unsupported input. Q must be either an object created by the package ltm or a matrix of responses.")
-        }
+      ay <- Qlist$ax
+      aaQ <- Qlist$aaP
+      byltm <- Qlist$bxltm
+      baQltm <- Qlist$baPltm
+      by <- Qlist$bx
+      baQ <- Qlist$baP
+      ltmQ <- Qlist$ltmP
+      Q <- Qlist$P
+      M <- Qlist$N
+      covalphaQ <- Qlist$covP
+    }
+    if(model=="3pl"){
+      if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
+        if((length(a)+length(x)-2) != ncol(P)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+        ltmP <- tpm(P, IRT.param=FALSE)
+        Plist <- irtinput(ltmP, x, a, robust, model)
       }
+      if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
+        if((length(a)+length(x)-2) != ncol(Q)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
+        ltmQ <- tpm(Q, IRT.param=FALSE)
+        Qlist <- irtinput(ltmQ, x, a, robust, model)
+      }  
+      
+      ax <- Plist$ax
+      aaP <- Plist$aaP
+      bxltm <- Plist$bxltm
+      baPltm <- Plist$baPltm
+      bx <- Plist$bx
+      baP <- Plist$baP
+      cx <- Plist$cx
+      caP <- Plist$caP
+      ltmP <- Plist$ltmP
+      if(class(ltmP) %in% c("ConfirmatoryClass", "SingleGroupClass")){
+        cxmirt <- cx
+        caPmirt <- caP
+        cx <- exp(cx) / (1 + exp(cx))
+        caP <- exp(caP) / (1 + exp(caP))
+      }
+      P <- Plist$P
+      N <- Plist$N
+      covalphaP <- Plist$covP
+      
+      ay <- Qlist$ax
+      aaQ <- Qlist$aaP
+      byltm <- Qlist$bxltm
+      baQltm <- Qlist$baPltm
+      by <- Qlist$bx
+      baQ <- Qlist$baP
+      cy <- Qlist$cx
+      caQ <-  Qlist$caP
+      ltmQ <- Qlist$ltmP
+      if(class(ltmP) %in% c("ConfirmatoryClass", "SingleGroupClass")){
+        cymirt <- cy
+        caQmirt <- caQ
+        cy <- exp(cy) / (1 + exp(cy))
+        caQ <- exp(caQ) / (1 + exp(caQ))
+      }
+      Q <- Qlist$P
+      M <- Qlist$N
+      covalphaQ <- Qlist$covP
     }
     
-    if(model=="3pl"){
-      if("tpm" %in% class(P)){
-        cx <- as.numeric(coef.tpm(P)[,1])[1:(length(x)-1)]
-        caP <- as.numeric(coef.tpm(P)[,1])[(length(x)):((length(x)+length(a)-2))]
-        bx <- as.numeric(coef.tpm(P)[,2])[1:(length(x)-1)]
-        baP <-  as.numeric(coef.tpm(P)[,2])[(length(x)):((length(x)+length(a)-2))]
-        ax <- as.numeric(coef.tpm(P)[,3])[1:(length(x)-1)]
-        aaP <- as.numeric(coef.tpm(P)[,3])[(length(x)):((length(x)+length(a)-2))]
-        if(P$IRT.param){
-          bxltm <- -ax*bx
-          baPltm <- -aaP*baP
-        } else{
-          bxltm <- bx
-          baPltm <- baP
-          bx <- -bxltm/ax
-          baP <- -baPltm/aaP
-        }
-        N <- dim(P$X)[1]
-        ltmP <- P
-        P <- ltmP$X
-      } else{
-        if(is.matrix(P)){
-          if((length(a)+length(x)-2) != ncol(P))
-            return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
-          ltmP <- ltm(P ~ z1, IRT.param=FALSE)
-          cx <- as.numeric(coef.tpm(ltmP)[,1])[1:(length(x)-1)]
-          caP <- as.numeric(coef.tpm(ltmP)[,1])[(length(x)):((length(x)+length(a)-2))]
-          bx <- as.numeric(coef.tpm(ltmP)[,2])[1:(length(x)-1)]
-          baP <- as.numeric(coef.tpm(ltmP)[,2])[(length(x)):((length(x)+length(a)-2))]
-          ax <- as.numeric(coef.tpm(ltmP)[,3])[1:(length(x)-1)]
-          aaP <- as.numeric(coef.tpm(ltmP)[,3])[(length(x)):((length(x)+length(a)-2))]
-          bxltm <- bx
-          baPltm <- baP
-          bx <- -bxltm/ax
-          baP <- -baPltm/aaP
-          N <- dim(P)[1]
-        } else{
-          return("Unsupported input. P must be either an object created by the package ltm or a matrix of responses.")
-        }
-      }
+    if(model=="GPCM"){
+      JX <- length(catsX)
+      JY <- length(catsY)
+      JA <- length(catsA)
+      kX <- sum(catsX) - JX
+      kY <- sum(catsY) - JY
+      kA <- sum(catsA) - JA
+      gpcmP <- P
+      gpcmQ <- Q
+      #ax, ay vectors of scale parameters for the items
+      #bx, by lists of location parameters, each entry one vector per item
       
-      if("tpm" %in% class(Q)){
-        cy <- as.numeric(coef.tpm(Q)[,1])[1:(length(y)-1)]
-        caQ <- as.numeric(coef.tpm(Q)[,1])[(length(y)):((length(y)+length(a)-2))]
-        by <- as.numeric(coef.tpm(Q)[,2])[1:(length(y)-1)]
-        baQ <-  as.numeric(coef.tpm(Q)[,2])[(length(y)):((length(y)+length(a)-2))]
-        ay <- as.numeric(coef.tpm(Q)[,3])[1:(length(y)-1)]
-        aaQ <- as.numeric(coef.tpm(Q)[,3])[(length(y)):((length(y)+length(a)-2))]
-        if(Q$IRT.param){
-          byltm <- -ay*by
-          baQltm <- -aaQ*baQ
-        } else{
-          byltm <- by
-          baQltm <- baQ
-          by <- -byltm/ay
-          baQ <- -baQltm/aaQ
-        }
-        M <- dim(Q$X)[1]
-        ltmQ <- Q
-        Q <- ltmQ$X
-      } else{
-        if(is.matrix(Q)){
-          if((length(a)+length(y)-2) != ncol(Q))
-            return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
-          ltmQ <- tpm(Q, IRT.param=FALSE)
-          cy <- as.numeric(coef.tpm(ltmQ)[,1])[1:(length(y)-1)]
-          caQ <- as.numeric(coef.tpm(ltmQ)[,1])[(length(y)):((length(y)+length(a)-2))]
-          by <- as.numeric(coef.tpm(ltmQ)[,2])[1:(length(y)-1)]
-          baQ <-  as.numeric(coef.tpm(ltmQ)[,2])[(length(y)):((length(y)+length(a)-2))]
-          ay <- as.numeric(coef.tpm(ltmQ)[,3])[1:(length(y)-1)]
-          aaQ <- as.numeric(coef.tpm(ltmQ)[,3])[(length(y)):((length(y)+length(a)-2))]
-          byltm <- by
-          baQltm <- baQ
-          by <- -byltm/ay
-          baQ <- -baQltm/aaQ
-          M <- dim(Q)[1]
-        } else{
-          return("Unsupported input. Q must be either an object created by the package ltm or a matrix of responses.")
-        }
-      }
-      
+      parsP <- irtinput(gpcmP, x, a, robust, model, catsX = catsX, catsA = catsA)
+      parsQ <- irtinput(gpcmQ, y, a, robust, model, catsX = catsY, catsA = catsA)
+      ax <- parsP$ax
+      bx <- parsP$bx
+      aaP <- parsP$aaP
+      baP <- parsP$baP
+      ay <- parsQ$ax
+      by <- parsQ$bx
+      aaQ <- parsQ$aaP
+      baQ <- parsQ$baP
+      N <- parsP$N
+      M <- parsQ$N
+      P <- parsP$P
+      Q <- parsQ$P
+      ltmP <- gpcmP
+      ltmQ <- gpcmQ
     }
+    
+    if(model=="GRM"){
+      JX <- length(catsX)
+      JY <- length(catsY)
+      JA <- length(catsA)
+      kX <- sum(catsX) - JX
+      kY <- sum(catsY) - JY
+      kA <- sum(catsA) - JA
+      grmP <- P
+      grmQ <- Q
+      
+      parsP <- irtinput(grmP, x, a, robust, model, catsX = catsX, catsA = catsA)
+      parsQ <- irtinput(grmQ, y, a, robust, model, catsX = catsY, catsA = catsA)
+      ax <- parsP$ax
+      bx <- parsP$bx
+      aaP <- parsP$aaP
+      baP <- parsP$baP
+      ay <- parsQ$ax
+      by <- parsQ$bx
+      aaQ <- parsQ$aaP
+      baQ <- parsQ$baP
+      N <- parsP$N
+      M <- parsQ$N
+      P <- parsP$P
+      Q <- parsQ$P
+      ltmP <- grmP
+      ltmQ <- grmQ
+    }
+    
     
     if(missing(qpoints))
       qpoints <- -ltmP$GH$Z[,2]
@@ -1738,20 +2170,14 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       irtrQ <- probpl(betaA*qpoints+betaB, bx, model)
       irtsQ <- probpl(qpoints, by, model)
       irtsP <- probpl(betaA*qpoints+betaB, by, model)
-      #pderX <- pderpl(irtx, qpoints, bx, model)
-      #pderAP <- pderpl(irtaP, qpoints, baP, model)
-      #pderY <- pderpl(irty, qpoints, by, model)
-      #pderAQ <- pderpl(irtaQ, qpoints, baQ, model)
     }
     if(model=="2pl"){
-      ltmPcf <- ltmP$coefficients
-      ltmPcov <- vcov.ltm(ltmP, robust=robust)
-      ltmQcf <- ltmQ$coefficients
-      ltmQcov <- vcov.ltm(ltmQ, robust=robust)
-      
+      ltmPcf <- data.frame(bP=c(bxltm, baPltm), aP=c(ax, aaP))
+      ltmQcf <- data.frame(bQ=c(byltm, baQltm), aQ=c(ay, aaQ))
+
       dimnames(ltmPcf)[[1]] <- c(sprintf("X%03d", 1:(length(x)-1)), sprintf("A%03d", 1:(length(a)-1)))
       dimnames(ltmQcf)[[1]] <- c(sprintf("Y%03d", 1:(length(y)-1)), sprintf("A%03d", 1:(length(a)-1)))
-      avoidprint <- capture.output({modPQ <- modIRT(coef=list(test1=ltmPcf, test2=ltmQcf), var=list(test1=ltmPcov, test2=ltmQcov), names=paste("test", 1:2, sep=""), ltparam=TRUE)})
+      avoidprint <- capture.output({modPQ <- modIRT(coef=list(test1=ltmPcf, test2=ltmQcf), var=list(test1=covalphaP, test2=covalphaQ), names=paste("test", 1:2, sep=""), ltparam=TRUE)})
       eqc <- direc(modPQ[2], modPQ[1], method=eqcoef)
       
       betaA <- eqc$A
@@ -1762,65 +2188,89 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       irtrQ <- probpl(betaA*qpoints+betaB, bx, model, a=ax)
       irtsQ <- probpl(qpoints, by, model, a=ay)
       irtsP <- probpl((qpoints-betaB)/betaA, by, model, a=ay)
-      #irtaQ <- probpl(qpoints, baQ, model, a=aaQ)
-      #pderX <- pderpl(irtx, qpoints, bx, model, a=ax)
-      #pderAP <- pderpl(irtaP, qpoints, baP, model, a=aaP)
-      #pderY <- pderpl(irty, qpoints, by, model, a=ay)
-      #pderAQ <- pderpl(irtaQ, qpoints, baQ, model, a=aaQ)
-      
-      covalphaP <- ltmPcov
-      covalphaQ <- ltmQcov
       adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, aa=aaP, bxltm=bxltm, baltm=baPltm), "PSE", model="2pl")
       adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, aa=aaQ, bxltm=byltm, baltm=baQltm), "PSE", model="2pl")
       
     }
     if(model=="3pl"){
-      ltmPcf <- ltmP$coefficients
-      ltmPcov <- vcov(ltmP)
-      ltmQcf <- ltmQ$coefficients
-      ltmQcov <- vcov(ltmQ)
-      
-      dimnames(ltmPcf)[[1]] <- c(sprintf("X%03d", 1:(length(x)-1)), sprintf("A%03d", 1:(length(a)-1)))
-      dimnames(ltmQcf)[[1]] <- c(sprintf("Y%03d", 1:(length(y)-1)), sprintf("A%03d", 1:(length(a)-1)))
-      avoidprint <- capture.output({modPQ <- modIRT(coef=list(test1=ltmPcf, test2=ltmQcf), var=list(test1=ltmPcov, test2=ltmQcov), names=paste("test", 1:2, sep=""), ltparam=TRUE, lparam=TRUE)})
+      #cov-mat from tpm() is for regular c
+      if(class(ltmP) == "tpm"){
+        ltmPcf <- data.frame(c = c(cx, caP), b = c(bxltm, baPltm), a = c(ax, aaP))
+        ltmQcf <- data.frame(c = c(cy, caQ), b = c(byltm, baQltm), a = c(ay, aaQ))
+        dimnames(ltmPcf)[[1]] <- c(sprintf("X%03d", 1:(length(x)-1)), sprintf("A%03d", 1:(length(a)-1)))
+        dimnames(ltmQcf)[[1]] <- c(sprintf("Y%03d", 1:(length(y)-1)), sprintf("A%03d", 1:(length(a)-1)))
+        avoidprint <- capture.output({modPQ <- modIRT(coef=list(test1=ltmPcf, test2=ltmQcf), var=list(test1=covalphaP, test2=covalphaQ), names=paste("test", 1:2, sep=""), ltparam=TRUE, lparam=FALSE)})
+      }
+      #cov-mat from mirt() is for cmirt such that c=exp(cmirt)/(1+exp(cmirt))
+      if(class(ltmP) %in% c("ConfirmatoryClass", "SingleGroupClass")){
+        mirtPcf <- data.frame(c = c(cxmirt, caPmirt), b = c(bxltm, baPltm), a = c(ax, aaP))
+        mirtQcf <- data.frame(c = c(cymirt, caQmirt), b = c(byltm, baQltm), a = c(ay, aaQ))
+        dimnames(mirtPcf)[[1]] <- c(sprintf("X%03d", 1:(length(x)-1)), sprintf("A%03d", 1:(length(a)-1)))
+        dimnames(mirtQcf)[[1]] <- c(sprintf("Y%03d", 1:(length(y)-1)), sprintf("A%03d", 1:(length(a)-1)))
+        avoidprint <- capture.output({modPQ <- modIRT(coef=list(test1=mirtPcf, test2=mirtQcf), var=list(test1=covalphaP, test2=covalphaQ), names=paste("test", 1:2, sep=""), ltparam=TRUE, lparam=TRUE)})
+      }
       eqc <- direc(modPQ[2], modPQ[1], method=eqcoef)
       
       betaA <- eqc$A
       betaB <- eqc$B
+      
+      adjcovalphaP <- modPQ$test1$var
+      adjcovalphaQ <- modPQ$test2$var
       
       irtpars <- list(ax=ax, ay=ay, aaP=aaP, aaQ=aaQ, bx=bx, by=by, baP=baP, baQ=baQ, cx=cx, cy=cy, caP=caP, caQ=caQ)
       irtrP <- probpl(qpoints, bx, a=ax, c=cx)
       irtrQ <- probpl(betaA*qpoints+betaB, bx, a=ax, c=cx)
       irtsQ <- probpl(qpoints, by, a=ay, c=cy)
       irtsP <- probpl((qpoints-betaB)/betaA, by, a=ay, c=cy)
-      
-      covalphaP <- vcov.tpm(ltmP)
-      covalphaQ <- vcov.tpm(ltmQ)
-      adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, aa=aaP, bxltm=bxltm, baltm=baPltm), design, model="3pl")
-      adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, aa=aaQ, bxltm=byltm, baltm=baQltm), design, model="3pl")
-      #irtaQ <- probpl(qpoints, baQ, a=aaQ, c=caQ)
-      #pderX <- pderpl(irtx, qpoints, bx, a=ax, c=cx)
-      #pderAP <- pderpl(irtaP, qpoints, baP, a=aaP, c=caP)
-      #pderY <- pderpl(irty, qpoints, by, a=ay, c=cy)
-      #pderAQ <- pderpl(irtaQ, qpoints, baQ, a=aaQ, c=caQ)
     }
     
-    #irtx <- probpl(qpoints, bx, model, a=ax)
-    #irtaP <- probpl(qpoints, baP, model, a=aaP)
-    #irty <- probpl(qpoints, by, model, a=ay)
-    #irtaQ <- probpl(qpoints, baQ, model, a=aaQ)
+    if(model %in% c("1pl", "2pl", "3pl")){
+       rP <- LordWW(irtrP, qpoints)
+       rQ <- LordWW(irtrQ, qpoints)
+       sQ <- LordWW(irtsQ, qpoints)
+       sP <- LordWW(irtsP, qpoints)
+    }
     
-    rP <- LordWW(irtrP, qpoints)
-    rQ <- LordWW(irtrQ, qpoints)
-    sQ <- LordWW(irtsQ, qpoints)
-    sP <- LordWW(irtsP, qpoints)
+    if(model %in% c("GPCM", "GRM")){
+      estAB <- eqcpoly(aaP, baP, aaQ, baQ, catsA, model, eqcoef, qpoints, distribution)
+      betaA <- estAB[1]
+      betaB <- estAB[2]
+      
+      irtrP <- polyprob(ax, bx, catsX, model, qpoints)
+      irtrQ <- polyprob(ax, bx, catsX, model, betaA * qpoints + betaB)
+      irtsP <- polyprob(ay, by, catsY, model, (qpoints - betaB) / betaA)
+      irtsQ <- polyprob(ay, by, catsY, model, qpoints)
+      
+      covalphaP <- extract.mirt(ltmP, "vcov")
+      covalphaQ <- extract.mirt(ltmQ, "vcov")
+      if(model == "GPCM"){
+        adjderP <- adjgpcmmirt(ltmP)
+        adjderQ <- adjgpcmmirt(ltmQ)
+      }
+      if(model == "GRM"){
+        adjderP <- adjgrmmirt(ltmP)
+        adjderQ <- adjgrmmirt(ltmQ)
+      }
+      adjcovalphaP <- t(adjderP) %*% covalphaP %*% adjderP
+      adjcovalphaQ <- t(adjderQ) %*% covalphaQ %*% adjderQ
+    }
     
-    r <- wS*rP+(1-wS)*rQ
-    s <- wS*sP+(1-wS)*sQ
+    if(model %in% c("GPCM", "GRM")){
+      rP <- rowSums(cmnom(catsX, irtrP, qpoints))
+      rQ <- rowSums(cmnom(catsX, irtrQ, qpoints))
+      sQ <- rowSums(cmnom(catsY, irtsQ, qpoints))
+      sP <- rowSums(cmnom(catsY, irtsP, qpoints))
+    }
+    r <- wS * rP + (1 - wS) * rQ
+    s <- wS * sP + (1 - wS) * sQ
 
+    if(model %in% c("GPCM", "GRM")){
+      pdermats <- polypderpse(ax, bx, aaP, baP, ay, by, aaQ, baQ, catsX, catsY, catsA, model, eqcoef, qpoints, distribution, estAB)
+    }
     
-    pdermats <- pderrspse(irtpars, x, y, a, irtrP, irtrQ, irtsP, irtsQ, qpoints, eqc, wS, model=model)
-    
+    if(model %in% c("1pl", "2pl", "3pl")){
+      pdermats <- pderrspse(irtpars, x, y, a, irtrP, irtrQ, irtsP, irtsQ, qpoints, eqc, wS, model=model)
+    }
     
     if(kernel=="uniform"){
       ulimit<-(1/(2*bunif*(1-0.61803)))
@@ -1848,10 +2298,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
         } else{
           if(KPEN==0){
-            hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           } else{
-            hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
       } else{
@@ -1862,10 +2312,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
           hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
         } else{
           if(KPEN==0){
-            hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           } else{
-            hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
       } else{
@@ -1882,15 +2332,9 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
     PRE<-data.frame(PREYx)
     h<-data.frame(hx, hy)
     
-    #if(irtx!=0 && irty!=0){
-    #  irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
-    #}
-    
     gprimeY<-densityeq(s, hy, vary, meany, eqYx, y, kernel, slog, bunif)							#G' for eY
     fprimeY<-densityeq(r, hx, varx, meanx, x, x, kernel, slog, bunif)							#F' for eY
-    #gprimeX<-densityeq(s, hy, vary, meany, y, y)
-    #fprimeX<-densityeq(r, hx, varx, meanx, eqXy, x)
-    
+
     if(altopt){
       altfprim <- altoptdensity(r, hx, varx, meanx, x, x)
       altgprim <- altoptdensity(s, hy, vary, meanx, eqYx, y)
@@ -1903,35 +2347,20 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="anal
       dGdseYEG<-dFdr(s, hy, vary, meany, gprimeY, eqYx, y, kernel, slog, bunif)						#KxK
     }
     
-    
     JeY <- matrix(0, nrow=length(x), ncol=(length(x)+length(y)))
     JeY[,1:(length(x))] <- dFdreYEG
     JeY[,(length(x)+1):(length(x)+length(y))] <- -dGdseYEG
     JeY <- (1/gprimeY)*JeY
-    #print(JeY)
-    cholalphaPQ <- matrix(0, nrow=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]), ncol=(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]))
-    cholalphaPQ[1:dim(adjcovalphaP)[1],1:dim(adjcovalphaP)[1]] <- chol(adjcovalphaP)
-    cholalphaPQ[(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1]),(dim(adjcovalphaP)[1]+1):(dim(adjcovalphaP)[1]+dim(adjcovalphaQ)[1])]<- chol(adjcovalphaQ)
-    
-    #print(pdermats$paXaYbetaAB)
-    #print(pdermats$prPrQsPsQ)
-    #print(pdermats$prSsS)
-    
-    #plot(sqrt(diag(pdermats$prPrQsPsQ %*% pdermats$paXaYbetaAB %*% t(cholalphaPQ) %*% cholalphaPQ %*% t(pdermats$paXaYbetaAB) %*% t(pdermats$prPrQsPsQ) )))
+    adjcovalphaPQ <- cbind(rbind(adjcovalphaP, matrix(0, nrow=nrow(adjcovalphaP), ncol=ncol(adjcovalphaP))), rbind(matrix(0, nrow=nrow(adjcovalphaQ), ncol=ncol(adjcovalphaQ)), adjcovalphaQ))
+
     Jalpha <- pdermats$prSsS %*% pdermats$prPrQsPsQ %*% pdermats$paXaYbetaAB
     pdereqYx <- JeY %*% Jalpha
-    
-    #print(Jalpha)
-    #plot(sqrt(diag(Jalpha %*% t(cholalphaPQ) %*% cholalphaPQ  %*% t(Jalpha))))
-    coveqYx <- pdereqYx %*% t(cholalphaPQ) %*% cholalphaPQ %*% t(pdereqYx)
+
+    coveqYx <- pdereqYx %*% adjcovalphaPQ %*% t(pdereqYx)
     output <- data.frame(eqYx=eqYx, SEEYx=sqrt(diag(coveqYx)))
-    #return(list(equating=output, coveqYx=coveqYx))     
-    out <- new("keout", coveqYx=coveqYx, pdereqYx=pdereqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=r, cdfx=cdfx), Y=data.frame(y, s=s, cdfy=cdfy), M=M, N=N), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE PSE", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
+    out <- new("keout", coveqYx=coveqYx, pdereqYx=pdereqYx, Pobs=P, Qobs=Q, scores=list(X=data.frame(x, r=r, cdfx=cdfx), Y=data.frame(y, s=s, cdfy=cdfy), M=M, N=N, covrs = (Jalpha) %*% adjcovalphaPQ %*% t(Jalpha)), linear=linear, PRE=PRE, h=h, kernel=kernel, type="IRT-OSE PSE", equating=output, irt=list(covalphaP=adjcovalphaP, covalphaQ=adjcovalphaQ, ltmP=ltmP, ltmQ=ltmQ), see=see)
     return(out)
-  }
-  
-  else return("Currently only CE, PSE and EG have been implemented.")
-  
+  } else return("Currently only CE, PSE and EG have been implemented.")
 }
 
 irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", kernel="gaussian", slog=1, bunif=1, KPEN=0, wpen=0.5, linear=FALSE, altopt=FALSE, h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0)){
@@ -2101,10 +2530,10 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
         hxP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
     else{
       if(KPEN==0)
-        hxP<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hxP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
     if(h$hyQ==0)
@@ -2112,10 +2541,10 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
         hyQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
     else{
       if(KPEN==0)
-        hyQ<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hyQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
     if(h$haP==0)
@@ -2123,10 +2552,10 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
         haP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varaP)
     else{
       if(KPEN==0)
-        haP<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        haP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        haPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        haPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
     if(h$haQ==0)
@@ -2134,10 +2563,10 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
         haQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(varaQ)
     else{
       if(KPEN==0)
-        haQ<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        haQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        haQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        haQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
   }
@@ -2309,10 +2738,10 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
           hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
         } else{
           if(KPEN==0){
-            hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           } else{
-            hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
       }
@@ -2321,10 +2750,10 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
           hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
         } else{
           if(KPEN==0){
-            hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           } else{
-            hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
       }
@@ -2382,14 +2811,14 @@ keirt<-function(irtr, irts, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
       
       else{
         if(KPEN==0){
-          hxirt<-optimize(PEN, interval=c(0, ulimit), r=rirt, x, var=varxirt, mean=meanxirt, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hyirt<-optimize(PEN, interval=c(0, ulimit), r=sirt, y, var=varyirt, mean=meanyirt, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxirt<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rirt, x, var=varxirt, mean=meanxirt, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyirt<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sirt, y, var=varyirt, mean=meanyirt, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
         else{
-          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=rirt, x, var=varxirt, mean=meanxirt, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=sirt, y, var=varyirt, mean=meanyirt, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hxirt<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=rirt, x, var=varxirt, mean=meanxirt, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hyirt<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=sirt, y, var=varyirt, mean=meanyirt, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rirt, x, var=varxirt, mean=meanxirt, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sirt, y, var=varyirt, mean=meanyirt, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxirt<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=rirt, x, var=varxirt, mean=meanxirt, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyirt<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=sirt, y, var=varyirt, mean=meanyirt, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
         hxirtlin<-as.numeric(1000*sqrt(varxirt))
         hyirtlin<-as.numeric(1000*sqrt(varyirt))
@@ -2478,10 +2907,10 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
           hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
       else{
         if(KPEN==0)
-          hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
       if(hy==0)
@@ -2489,10 +2918,10 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
           hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
       else{
         if(KPEN==0)
-          hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
     } 
@@ -2593,10 +3022,10 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
         hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
     else{
       if(KPEN==0)
-        hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
     if(hy==0)
@@ -2604,10 +3033,10 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
         hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
     else{
       if(KPEN==0)
-        hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
     hxlin<-as.numeric(1000*sqrt(varx))
@@ -2729,10 +3158,10 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
           hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
       else{
         if(KPEN==0)
-          hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
       if(hy==0)
@@ -2740,10 +3169,10 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
           hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
       else{
         if(KPEN==0)
-          hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
     }
@@ -2867,10 +3296,10 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
         hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
     else{
       if(KPEN==0)
-        hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
     if(hy==0)
@@ -2878,10 +3307,10 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
         hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
     else{
       if(KPEN==0)
-        hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
   }
@@ -3015,10 +3444,10 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
           hxP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
         else{
           if(KPEN==0)
-            hxP<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hxP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           else{
-            hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
       if(hyQ==0)
@@ -3026,10 +3455,10 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
           hyQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
         else{
           if(KPEN==0)
-            hyQ<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hyQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           else{
-            hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
       if(haP==0)
@@ -3037,10 +3466,10 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
           haP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varaP)
         else{
           if(KPEN==0)
-            haP<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            haP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           else{
-            haPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            haPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
       if(haQ==0)
@@ -3048,10 +3477,10 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
           haQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(varaQ)
         else{
           if(KPEN==0)
-            haQ<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            haQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           else{
-            haQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            haQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
           }
         }
       hxPlin<-as.numeric(1000*sqrt(varx))
@@ -3172,10 +3601,10 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
         hxP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
       else{
         if(KPEN==0)
-          hxP<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
     if(hyQ==0)
@@ -3183,10 +3612,10 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
         hyQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
       else{
         if(KPEN==0)
-          hyQ<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
     if(haP==0)
@@ -3194,10 +3623,10 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
         haP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varaP)
       else{
         if(KPEN==0)
-          haP<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          haPPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
     if(haQ==0)
@@ -3205,10 +3634,10 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
         haQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(varaQ)
       else{
         if(KPEN==0)
-          haQ<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          haQPEN1min<-optimize(PEN, interval=c(0, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
     hxPlin<-as.numeric(1000*sqrt(varx))
@@ -3390,10 +3819,10 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
           hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
       else{
         if(KPEN==0)
-          hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
       if(hy==0)
@@ -3401,10 +3830,10 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
           hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
       else{
         if(KPEN==0)
-          hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyPEN1min<-optimize(PEN, interval=c(0, ulimit),tol = .Machine$double.eps^0.5,  r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
     }
@@ -3514,10 +3943,10 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
         hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
     else{
       if(KPEN==0)
-        hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
     if(hy==0)
@@ -3525,10 +3954,10 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
         hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
     else{
       if(KPEN==0)
-        hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
   }  
@@ -3704,10 +4133,10 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
           hx <- 9 / sqrt(100 * N^(2/5) - 81) * sqrt(varx)
       else{
         if(KPEN==0)
-          hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
       if(hy==0)
@@ -3715,10 +4144,10 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
           hy <- 9 / sqrt(100 * M^(2/5) - 81) * sqrt(vary)
       else{
         if(KPEN==0)
-          hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         else{
-          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
         }
       }
     }
@@ -3804,10 +4233,10 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
         hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
     else{
       if(KPEN==0)
-        hx<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
     if(hy==0)
@@ -3815,10 +4244,10 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
         hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
     else{
       if(KPEN==0)
-        hy<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       else{
-        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
   }
@@ -4022,6 +4451,113 @@ LordWWc <- function(p, qpoints){
   }
   return(as.matrix(test[,,n]))
 }
+
+
+eqcpoly <- function(aP, bP, aQ, bQ, cats, model, eqcoef, qpoints, distribution){
+  J <- length(cats)
+  sA <- sum(aQ) / sum(aP)
+  sB <- do.call(sum, bP) / (sum(cats) - J) - (sA * do.call(sum, bQ)) / (sum(cats) - J)
+#   if(eqcoef %in% c("Haebara", "Stocking-Lord")){
+#     toopt <- function(pars, aP, bP, aQ, bQ, cats, model, eqcoef, qpoints, distribution){
+#       A <- pars[1]
+#       B <- pars[2]
+#       rfvect1 <- numeric(length(qpoints))
+#       rfvect2 <- numeric(length(qpoints))
+#       P1RF1 <- polyprob(aP, bP, cats, model, qpoints)
+#       P2RF1 <- polyprob(aQ, bQ, cats, model, A * qpoints+B)
+#       P1RF2 <- polyprob(aP, bP, cats, model, (qpoints-B)/A)
+#       P2RF2 <- polyprob(aQ, bQ, cats, model, qpoints)
+#       
+#       if(eqcoef=="Stocking-Lord"){
+#         for(j in 1:J){
+#           for(k in 1:(cats[j])){
+#             rfvect1 <- (k-1) * (P1RF1[[j]][k,] - P2RF1[[j]][k,]) + rfvect1
+#             rfvect2 <- (k-1) * (P2RF2[[j]][k,] - P1RF2[[j]][k,]) + rfvect2
+#           }
+#         }
+#         rfvect1 <- rfvect1^2
+#         rfvect2 <- rfvect2^2
+#       }
+#       if(eqcoef=="Haebara"){
+#         for(j in 1:J){
+#           for(k in 1:(cats[j])){
+#             rfvect1 <- (P1RF1[[j]][k,] - P2RF1[[j]][k,])^2 + rfvect1
+#             rfvect2 <- (P2RF2[[j]][k,] - P1RF2[[j]][k,])^2 + rfvect2
+#           }
+#         }
+#       }
+#       if(distribution[[1]]=="normal") return(sum(rfvect1 * (dnorm(qpoints, distribution[[2]]$mu, distribution[[2]]$sigma) / sum(dnorm(qpoints, distribution[[2]]$mu, distribution[[2]]$sigma)))) + sum(rfvect2 * (dnorm(qpoints, distribution[[2]]$mu, distribution[[2]]$sigma) / sum(dnorm(qpoints, distribution[[2]]$mu, distribution[[2]]$sigma)))))
+#       if(distribution[[1]]=="chisq") return(sum((rfvect1 + rfvect2) * (dstdchisq(qpoints, distribution[[2]]$df, distribution[[2]]$loc, distribution[[2]]$sca) / sum(dstdchisq(qpoints, distribution[[2]]$df, distribution[[2]]$loc, distribution[[2]]$sca)))))
+#     }
+#     outAB <- optim(c(sA, sB), toopt, aP=aQ, bP=bQ, aQ=aP, bQ=bP, cats=cats, model=model, eqcoef=eqcoef, qpoints=qpoints, distribution=distribution)$par
+#   }
+  if(eqcoef == "mean-mean"){
+    outAB <- c(sA, sB)
+  }
+  return(outAB)
+}
+
+pdereqcpoly <- function(aP, bP, aQ, bQ, cats, model, eqcoef, qpoints, distribution, AB){
+#   if(eqcoef %in% c("Haebara", "Stocking-Lord")){
+#     ABmat <- d2eqcpolyAB(aQ, bQ, aP, bP, cats, model, eqcoef, qpoints, distribution, AB)
+#     derirtpar <- deqcpolyirt(aQ, bQ, aP, bP, cats, model, eqcoef, qpoints, distribution, AB)
+#     return((-solve(ABmat)) %*% derirtpar)
+#   }
+  #add mean-mean from polyirt paper
+  if(eqcoef == "mean-mean"){
+    JA <- length(cats)
+    sumaP <- sum(aP)
+    sumaQ <- sum(aQ)
+    sumbQ <- do.call(sum, bQ)
+    
+    dAdaP <- dBdaP <- dAdaQ <- dBdaQ <- vector("list", JA)
+    
+    for(j in 1:JA){
+      dAdaP[[j]] <- dBdaP[[j]] <- dAdaQ[[j]] <- dBdaQ[[j]] <- numeric(cats[j])
+      dAdaP[[j]] <- c(rep(0, cats[j]-1), - sumaQ / sumaP^2)
+      dBdaP[[j]] <- c(rep(1, cats[j]-1), (sumaQ / sumaP^2) * sumbQ)
+      dAdaQ[[j]] <- c(rep(0, cats[j]-1), 1 / sumaP)
+      dBdaQ[[j]] <- c(rep(- sumaQ / sumaP, cats[j]-1), - sumbQ / sumaP)
+    }
+    
+    
+    if(model == "GRM"){
+      
+      for(j in 1:JA){
+        dAdaP[[j]] <- dBdaP[[j]] <- dAdaQ[[j]] <- dBdaQ[[j]] <- numeric(cats[j])
+        dAdaP[[j]] <- c(- sumaQ / sumaP^2, rep(0, cats[j]-1))
+        dBdaP[[j]] <- c((sumaQ / sumaP^2) * sumbQ, rep(1, cats[j]-1))
+        dAdaQ[[j]] <- c(1 / sumaP, rep(0, cats[j]-1))
+        dBdaQ[[j]] <- c(- sumbQ / sumaP, rep(- sumaQ / sumaP, cats[j]-1))
+      }
+      #		for(j in 1:JA){
+      #        		dAdaP[[j]] <- dBdaP[[j]] <- dAdaQ[[j]] <- dBdaQ[[j]] <- numeric(cats[j])
+      #        		dAdaP[[j]] <- c(rep(0, cats[j]-1), - sumaQ / sumaP^2)
+      #        		dAdaQ[[j]] <- c(rep(0, cats[j]-1), 1 / sumaP)
+      #			for(l in 1:(cats[j]-1)){
+      #				dBdaP[[j]][l] <- cats[j] - l
+      #				dBdaQ[[j]][l] <- - (sumaQ / sumaP) * cats[j] - l
+      #			}
+      #			dBdaP[[j]][cats[j]] <- (sumaQ / sumaP^2) * sumbQ
+      #			dBdaQ[[j]][cats[j]] <- - sumbQ / sumaP
+      #		}
+    }
+    
+    dAdaP <- unlist(dAdaP)
+    dBdaP <- unlist(dBdaP)
+    dAdaQ <- unlist(dAdaQ)
+    dBdaQ <- unlist(dBdaQ)
+    outmat <- matrix(0, nrow = 2, ncol = 2 * sum(cats))
+    outmat[1,1:sum(cats)] <- dAdaP
+    outmat[2,1:sum(cats)] <- dBdaP / (sum(cats) - length(cats))
+    outmat[1,(sum(cats)+1):(2 * sum(cats))] <- dAdaQ
+    outmat[2,(sum(cats)+1):(2 * sum(cats))] <- dBdaQ / (sum(cats) - length(cats))
+    return(outmat)
+  }
+}
+
+
+
 
 pderpl <- function(irt, qpoints, b, model = "3pl", a = 0, c = 0){
   #irt - the probabilities to answer each item (rows) correctly for the quadrature points (columns) considered
@@ -4535,6 +5071,418 @@ PREp<-function(eq, obs, r, s){
 	for(i in 1:10)
 		pre[i]<-100*(eq^i%*%r-obs^i%*%s)/obs^i%*%s
 	return(pre)
+}
+
+polypderplpse <- function(a, b, cats, probs, model, qpoints, ABqpoints, AB, pder){
+  #a, b - estimated item parameters
+  #cats - numbers of categories for every item
+  #probs - the probabilities to answer each item (rows) correctly for the quadrature points (columns) considered (ABqp)
+  #model - GPCM or GRM
+  #qpoints - the quadrature points considered
+  #distribution - which distribution to assume for the latent variable
+  #AB - the estimated equating coefficients
+  #pder - which partial derivatives to calculate, "rQeqc" or "sPeqc"
+  
+  JX <- length(cats)
+  kX <- sum(cats) - JX
+  qp <- qpoints
+  ABqp <- ABqpoints
+  A <- AB[1]
+  B <- AB[2]
+  
+  cprobs <- vector("list", JX)
+  for(i in 1:JX){
+    output <- vector("list", cats[i])
+    input <- probs
+    for(j in 1:cats[i]){
+      input[[i]] <- matrix(0, nrow = cats[i], ncol = length(qp))
+      input[[i]][j,] <- rep(1, length(qp))
+      output[[j]] <- ccmnom(cats, input, ABqp)
+    }
+    cprobs[[i]] <- output
+  }
+  pPpeqc <- vector("list", JX)
+  #pPpeqc - list with the partial derivatives w/ resp to eq. coefficients for each item, each item category and each quad. point (list (item) -> list (item category) -> matrix(rows: eq. coeffients, columns: quad. points))
+  prpeqc <- matrix(0, nrow = 2, ncol = kX + 1)
+  #prpeqc - Matrix of partial derivatives w/ resp to the equating coefficients across all quadrature points, for each score value
+  
+  if(pder=="rQeqc"){
+    #gpcm ok?
+    if(model=="GPCM"){
+      for(j in 1:JX){
+        arr <- vector("list", cats[j])
+        sumcPj <- numeric(length(qp))
+        for(l in 1:cats[j]) sumcPj <- l * probs[[j]][l,] + sumcPj
+        for(l in 1:cats[j]){
+          arr[[l]] <- matrix(0, nrow = 2, ncol = length(qpoints))
+          arr[[l]][1,] <- qp * probs[[j]][l,] * a[j] * (l - sumcPj)
+          arr[[l]][2,] <- probs[[j]][l,] * a[j] * (l - sumcPj)
+        }
+        pPpeqc[[j]] <- arr
+      }
+    }
+    
+    #GRM should be OK
+    if(model=="GRM"){
+      for(j in 1:JX){
+        arr <- vector("list", cats[j])
+        #equada <- exp(-a[j] * ABqp)
+        arr[[1]] <- matrix(0, nrow = 2, ncol = length(qp))
+        
+        arr[[1]][1,] <- - qp * exp(-a[j] * (ABqp - b[[j]][1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][1])))^2
+        arr[[1]][2,] <- - exp(-a[j] * (ABqp - b[[j]][1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][1])))^2
+        
+        for(l in 2:(cats[j]-1)){
+          arr[[l]] <- matrix(0, nrow = 2, ncol = length(qp)) 
+          arr[[l]][1,] <- qp * {exp(-a[j] * (ABqp - b[[j]][l-1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][l-1])))^2 - exp(-a[j] * (ABqp - b[[j]][l])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][l])))^2}
+          arr[[l]][2,] <- {exp(-a[j] * (ABqp - b[[j]][l-1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][l-1])))^2 - exp(-a[j] * (ABqp - b[[j]][l])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][l])))^2}
+        }
+        
+        arr[[cats[j]]] <- matrix(0, nrow = 2, ncol = length(qp))
+        arr[[cats[j]]][1,] <- qp * exp(-a[j] * (ABqp - b[[j]][cats[j]-1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][cats[j]-1])))^2
+        arr[[cats[j]]][2,] <- exp(-a[j] * (ABqp - b[[j]][cats[j]-1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][cats[j]-1])))^2
+        pPpeqc[[j]] <- arr
+      }
+    }
+  }
+  
+  if(pder=="sPeqc"){
+    #gpcm ok?
+    if(model=="GPCM"){
+      for(j in 1:JX){
+        arr <- vector("list", cats[j])
+        sumcPj <- numeric(length(qp))
+        for(l in 1:cats[j]) sumcPj <- l * probs[[j]][l,] + sumcPj
+        for(l in 1:cats[j]){
+          arr[[l]] <- matrix(0, nrow = 2, ncol = length(qpoints))
+          arr[[l]][1,] <- -((qp-B) / A^2) * probs[[j]][l,] * a[j] * (l - sumcPj)
+          arr[[l]][2,] <- -(1 / A) * probs[[j]][l,] * a[j] * (l - sumcPj)
+        }
+        pPpeqc[[j]] <- arr
+      }
+    }
+    
+    if(model=="GRM"){
+      for(j in 1:JX){
+        arr <- vector("list", cats[j])
+        arr[[1]] <- matrix(0, nrow = 2, ncol = length(qp))
+        arr[[1]][1,] <- ((qp-B) / A^2) * exp(-a[j] * (ABqp - b[[j]][1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][1])))^2
+        arr[[1]][2,] <- (1 / A) * exp(-a[j] * (ABqp - b[[j]][1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][1])))^2
+        
+        for(l in 2:(cats[j]-1)){
+          arr[[l]] <- matrix(0, nrow = 2, ncol = length(qp)) 
+          arr[[l]][1,] <- -((qp-B) / A^2) * {exp(-a[j] * (ABqp - b[[j]][l-1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][l-1])))^2 - exp(-a[j] * (ABqp - b[[j]][l])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][l])))^2}
+          arr[[l]][2,] <- -(1 / A) * {exp(-a[j] * (ABqp - b[[j]][l-1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][l-1])))^2 - exp(-a[j] * (ABqp - b[[j]][l])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][l])))^2}
+        }
+        
+        arr[[cats[j]]] <- matrix(0, nrow = 2, ncol = length(qp))
+        arr[[cats[j]]][1,] <- -((qp-B) / A^2) * exp(-a[j] * (ABqp - b[[j]][cats[j]-1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][cats[j]-1])))^2
+        arr[[cats[j]]][2,] <- -(1 / A) * exp(-a[j] * (ABqp - b[[j]][cats[j]-1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][cats[j]-1])))^2
+        pPpeqc[[j]] <- arr
+      }
+    }
+  }
+  
+  
+  for(i in 1:(kX + 1)){
+    out <- matrix(0, nrow = 2, ncol = length(qp))
+    for(j in 1:JX){
+      for(l in 1:(cats[j])){
+        out[1,] <- (cprobs[[j]][[l]][i,]) * pPpeqc[[j]][[l]][1,] * dnorm(qp) / sum(dnorm(qp)) + out[1,]
+        out[2,] <- (cprobs[[j]][[l]][i,]) * pPpeqc[[j]][[l]][2,] * dnorm(qp) / sum(dnorm(qp)) + out[2,]
+      }
+    }
+    prpeqc[1, i] <- sum(out[1,])
+    prpeqc[2, i] <- sum(out[2,])
+  }
+  return(prpeqc)
+}
+
+
+polypderpse <- function(aX, bX, aaP, baP, aY, bY, aaQ, baQ, catsX, catsY, catsA, model, eqcoef, qpoints, distribution, AB, wS = 0.5){
+  betaA <- AB[1]
+  betaB <- AB[2]
+  JX <- length(catsX)
+  JY <- length(catsY)
+  JA <- length(catsA)
+  kxs <- sum(catsX) - length(catsX)
+  kys <- sum(catsY) - length(catsY)
+  kas <- sum(catsA) - length(catsA)
+  
+  irtrP <- polyprob(aX, bX, catsX, "GPCM", qpoints)
+  irtrQ <- polyprob(aX, bX, catsX, "GPCM", betaA * qpoints + betaB)
+  irtsP <- polyprob(aY, bY, catsY, "GPCM", (qpoints - betaB) / betaA)
+  irtsQ <- polyprob(aY, bY, catsY, "GPCM", qpoints)
+  
+  #partial derivatives of score probabilities with respect to main tests item parameters
+  prPpaX <- polypderpl(aX, bX, catsX, irtrP, model, qpoints, qpoints)
+  prQpaX <- polypderpl(aX, bX, catsX, irtrQ, model, qpoints, betaA * qpoints + betaB)
+  psPpaY <- polypderpl(aY, bY, catsY, irtsP, model, qpoints, (qpoints - betaB) / betaA)
+  psQpaY <- polypderpl(aY, bY, catsY, irtsQ, model, qpoints, qpoints)
+  #prQpaX <- polypderpl(aX, bX, catsX, irtrP, model, qpoints, qpoints)
+  #psPpaY <- polypderpl(aY, bY, catsY, irtsQ, model, qpoints, qpoints)
+  
+  pdermatPX <- matrix(0, nrow = kxs + 1, ncol = sum(catsX))
+  pdermatQX <- matrix(0, nrow = kxs + 1, ncol = sum(catsX))
+  pdermatPY <- matrix(0, nrow = kys + 1, ncol = sum(catsY))
+  pdermatQY <- matrix(0, nrow = kys + 1, ncol = sum(catsY))
+  
+  for(i in 1:(kxs + 1)){
+    pdermatPX[i, 1:catsX[1]] <- prPpaX[[i]][[1]]
+    for(j in 2:JX){
+      pdermatPX[i, (sum(catsX[1:(j - 1)]) + 1):sum(catsX[1:j])] <- prPpaX[[i]][[j]]
+    }
+  }
+  
+  for(i in 1:(kxs + 1)){
+    pdermatQX[i, 1:catsA[1]] <- prQpaX[[i]][[1]]
+    if(JX>1){
+      for(j in 2:JX){
+        pdermatQX[i, (sum(catsX[1:(j - 1)]) + 1):sum(catsX[1:j])] <- prQpaX[[i]][[j]]
+      }
+    }
+  }
+  
+  for(i in 1:(kys + 1)){
+    pdermatPY[i, 1:catsY[1]] <- psPpaY[[i]][[1]]
+    for(j in 2:JY){
+      pdermatPY[i, (sum(catsY[1:(j - 1)]) + 1):sum(catsY[1:j])] <- psPpaY[[i]][[j]]
+    }
+  }
+  
+  for(i in 1:(kys + 1)){
+    pdermatQY[i, 1:catsY[1]] <- psQpaY[[i]][[1]]
+    if(JA>1){
+      for(j in 2:JY){
+        pdermatQY[i, (sum(catsY[1:(j - 1)]) + 1):sum(catsY[1:j])] <- psQpaY[[i]][[j]]
+      }
+    }
+  }
+  
+  #partial derivatives of score probabilities with respect to equating coefficients
+  prQpeqcoef <- polypderplpse(aX, bX, catsX, irtrQ, model, qpoints, betaA * qpoints + betaB, AB, "rQeqc")
+  psPpeqcoef <- polypderplpse(aY, bY, catsY, irtsP, model, qpoints, (qpoints - betaB) / betaA, AB, "sPeqc")
+  
+  #partial derivatives of equating coefficients with respect to anchor test item parameters
+  peqcpa <- (pdereqcpoly(aaP, baP, aaQ, baQ, catsA, model, eqcoef, qpoints, distribution, AB))
+
+  #the number of items for each test
+  
+  
+  #prQpeqcoef <- matrix(0, nrow = (kxs + 1), ncol = 2)
+  #psPpeqcoef <- matrix(0, nrow = (kys + 1), ncol = 2)
+  
+  #total number of estimated item parameters
+  ktot <- sum(catsX) + sum(catsY) + 2 * sum(catsA)
+  
+  #matrix dimensions
+  prSsS <- matrix(0, nrow = (kxs + kys + 2), ncol = (2 * (kxs + kys) + 4))
+  prPrQsPsQ <- matrix(0, nrow = (2 * (kxs + kys) + 4), ncol = sum(catsX) + sum(catsY) + 2)
+  paXaYbetaAB <- matrix(0, nrow = sum(catsX) + sum(catsY) + 2, ncol = ktot)
+  
+  #fill matrices according to polyirt paper
+  #checks out?
+  
+  paXaYbetaAB[1:(sum(catsX)), 1:(sum(catsX))] <- diag(1, sum(catsX))
+  paXaYbetaAB[(sum(catsX) + 1):(sum(catsX) + sum(catsY)), (sum(catsX) + sum(catsA) + 1):(sum(catsX) + sum(catsA) + sum(catsY))] <- diag(1, sum(catsY))
+  if(eqcoef == "mean-mean"){
+    paXaYbetaAB[(sum(catsX) + sum(catsY) + 1), (sum(catsX) + 1):(sum(catsX) + sum(catsA))] <- peqcpa[1,1:(sum(catsA))]
+    paXaYbetaAB[(sum(catsX) + sum(catsY) + 2), (sum(catsX) + 1):(sum(catsX) + sum(catsA))] <- peqcpa[2,1:(sum(catsA))]
+    paXaYbetaAB[(sum(catsX) + sum(catsY) + 1), (sum(catsX) + sum(catsA) + sum(catsY) + 1):ktot] <- peqcpa[1,(sum(catsA) + 1):(2 * sum(catsA))]
+    paXaYbetaAB[(sum(catsX) + sum(catsY) + 2), (sum(catsX) + sum(catsA) + sum(catsY) + 1):ktot] <- peqcpa[2,(sum(catsA) + 1):(2 * sum(catsA))]
+  }
+  
+  if(eqcoef %in% c("Haebara", "Stocking-Lord")){
+    paXaYbetaAB[(sum(catsX) + sum(catsY) + 1):(sum(catsX) + sum(catsY) + 2), (sum(catsX) + 1):(sum(catsX) + sum(catsA))] <- (peqcpa[,(sum(catsA) + 1):(2 * sum(catsA))])
+    paXaYbetaAB[(sum(catsX) + sum(catsY) + 1):(sum(catsX) + sum(catsY) + 2), (sum(catsX) + sum(catsA) + sum(catsY) + 1):ktot] <- (peqcpa[,1:(sum(catsA))])
+  }
+  prSsS[1:(kxs + 1),1:(kxs + 1)] <- wS * diag(1, kxs + 1)
+  prSsS[1:(kxs + 1), (kxs + 2):(2 * (kxs + 1))] <- (1 - wS) * diag(1, kxs + 1)
+  prSsS[(kxs + 2):(kxs + kys + 2), (2 * (kxs + 1) + 1):(2 * (kxs + 1) + kys + 1)] <- wS * diag(1, kys + 1)
+  prSsS[(kxs + 2):(kxs + kys + 2), (2 * (kxs + 1) + kys + 2):(2 * (kxs + 1) + 2 * (kys + 1))] <- (1 - wS) * diag(1, kys + 1)
+  
+  
+  prPrQsPsQ[1:(kxs + 1), 1:(sum(catsX))] <- pdermatPX
+  prPrQsPsQ[(kxs + 2):(2 * (kxs + 1)), 1:(sum(catsX))] <- pdermatQX
+  prPrQsPsQ[(2 * (kxs + 1) + 1):(2 * (kxs + 1) + kys + 1), (sum(catsX) + 1):(sum(catsX) + sum(catsY))] <- pdermatPY
+  prPrQsPsQ[(2 * (kxs + 1) + kys + 2):(2 * (kxs + 1) + 2 * (kys + 1)), (sum(catsX) + 1):(sum(catsX) + sum(catsY))] <- pdermatQY
+
+  prPrQsPsQ[(kxs + 2):(2 * (kxs + 1)), (sum(catsX) + sum(catsY) + 1)] <- prQpeqcoef[1,]
+  prPrQsPsQ[(kxs + 2):(2 * (kxs + 1)), (sum(catsX) + sum(catsY) + 2)] <- prQpeqcoef[2,]
+  prPrQsPsQ[(2 * (kxs + 1) + 1):(2 * (kxs + 1) + kys + 1), (sum(catsX) + sum(catsY) + 1)] <- psPpeqcoef[1,]
+  prPrQsPsQ[(2 * (kxs + 1) + 1):(2 * (kxs + 1) + kys + 1), (sum(catsX) + sum(catsY) + 2)] <- psPpeqcoef[2,] 
+  
+  return(list(prSsS=prSsS, prPrQsPsQ=prPrQsPsQ, paXaYbetaAB=paXaYbetaAB))
+}
+
+
+polypderpl <- function(a, b, cats, probs, model, qpoints, ABqpoints){
+  JX <- length(cats)
+  kX <- sum(cats) - JX
+  qp <- qpoints
+  ABqp <- ABqpoints
+  
+  cprobs <- vector("list", JX)
+  for(i in 1:JX){
+    output <- vector("list", cats[i])
+    input <- probs
+    for(j in 1:cats[i]){
+      input[[i]] <- matrix(0, nrow = cats[i], ncol = length(qp))
+      input[[i]][j,] <- rep(1, length(qp))
+      output[[j]] <- ccmnom(cats, input, ABqp)
+    }
+    cprobs[[i]] <- output
+  }
+  pPpalpha <- vector("list", JX)
+  
+  if(model=="GRM"){
+    for(j in 1:JX){
+      arr <- vector("list", cats[j])
+      equada <- exp(-a[j] * ABqp)
+      
+      
+      
+      arr[[1]] <- matrix(0, nrow = cats[j], ncol = length(qp))
+      arr[[1]][1,] <- -exp(-a[j] * (ABqp - b[[j]][1])) * (ABqp - b[[j]][1]) / (1 + exp(-a[j] * (ABqp - b[[j]][1])))^2
+      arr[[1]][2,] <- exp(-a[j] * (ABqp - b[[j]][1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][1])))^2
+      
+      for(l in 2:(cats[j]-1)){
+        arr[[l]] <- matrix(0, nrow = cats[j], ncol = length(qp)) 
+        for(m in 2:(cats[j]-1)){
+          if(m == l){
+            arr[[l]][m,] <- -exp(-a[j] * (ABqp - b[[j]][m-1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][m-1])))^2
+            arr[[l]][m+1,] <- exp(-a[j] * (ABqp - b[[j]][m])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][m])))^2
+          }
+        }
+        
+        arr[[l]][1,] <- exp(-a[j] * (ABqp - b[[j]][l-1])) * (ABqp - b[[j]][l-1]) / (1 + exp(-a[j] * (ABqp - b[[j]][l-1])))^2 - exp(-a[j] * (ABqp - b[[j]][l])) * (ABqp - b[[j]][l]) / (1 + exp(-a[j] * (ABqp - b[[j]][l])))^2
+      }
+      arr[[cats[j]]] <- matrix(0, nrow = cats[j], ncol = length(qp))
+      arr[[cats[j]]][1,] <- exp(-a[j] * (ABqp - b[[j]][cats[j]-1])) * (ABqp - b[[j]][cats[j]-1]) / (1 + exp(-a[j] * (ABqp - b[[j]][cats[j]-1])))^2
+      arr[[cats[j]]][cats[j],] <- -exp(-a[j] * (ABqp - b[[j]][cats[j]-1])) * a[j] / (1 + exp(-a[j] * (ABqp - b[[j]][cats[j]-1])))^2
+      pPpalpha[[j]] <- arr
+    }
+
+    prpalpha <- vector("list", kX + 1)
+    for(i in 1:(kX + 1)){
+      prpalphal <- vector("list", JX)
+      for(j in 1:JX){
+        tempmat <- matrix(0, nrow = cats[j], ncol = length(qp))
+        for(k in 1:cats[j]) tempmat <- t((cprobs[[j]][[k]][i,]) * t(pPpalpha[[j]][[k]]))  + tempmat
+        prpalphal[[j]] <- rowSums(t((dnorm(qp) / sum(dnorm(qp))) * t(tempmat)))
+      }
+      prpalpha[[i]] <- prpalphal
+    }
+    return(prpalpha)
+  }
+  
+  
+  if(model=="GPCM"){
+    for(j in 1:JX){
+      arr <- vector("list", cats[j])
+      #1st: category answer of item j, 2nd: each parameter for item j, 3rd: each quadrature point
+      
+      ek <- matrix(0, nrow = cats[j], ncol = length(qp))
+      ek[1,] <- 1
+      
+      for(k in 2:cats[j]){
+        ek[k,] <- exp(a[j] * (ABqp - b[[j]][k-1]))
+      }
+      
+      s1 <- numeric(length(qp))
+      for(k in 2:cats[j]){
+        s1 <- apply(ek[1:k,], 2, prod) + s1
+      }
+      
+      s3 <- numeric(length(qp))
+      for(k in 2:cats[j]){
+        s3 <- apply(ek[1:k,], 2, prod) * ((k - 1) * ABqp - sum(b[[j]][1:(k-1)])) + s3
+      }
+      
+      arr[[1]] <- matrix(0, nrow = cats[j], ncol = length(qp))
+      
+      for(l in 2:cats[j]){
+        temp <- numeric(length(qp))
+        for(m in l:(cats[j])){
+          temp <- exp(a[j] * ((m - 1) * ABqp - sum(b[[j]][1:(m - 1)]))) +  temp
+        }
+        s2 <- temp
+        arr[[1]][(l - 1),] <- a[j] * s2 / (1 + s1)^2
+      }
+      arr[[1]][cats[j],] <- -s3 / (1 + s1)^2
+      
+      
+      for(k in 2:cats[j]){
+        arr[[k]] <- matrix(0, nrow = cats[j], ncol = length(qp))
+        s4 <- apply(ek[1:k,], 2, prod)
+        s5 <- (k - 1) * ABqp - sum(b[[j]][1:(k - 1)])
+        
+        for(l in 2:cats[j]){
+          temp <- numeric(length(qp))
+          for(m in l:(cats[j])){
+            temp <- exp(a[j] * ((m - 1) * ABqp - sum(b[[j]][1:(m - 1)]))) +  temp
+          }
+          s2 <- temp
+          if(l <= k){
+            arr[[k]][l-1,] <- -a[j] * (s4 * (1 + s1) - s4 * s2) / (1 + s1)^2
+          } else{
+            arr[[k]][l-1,] <- a[j] * s2 * s4 / (1 + s1)^2
+          }
+          
+        }
+        arr[[k]][cats[j],] <- (s4 * s5 * (1 + s1) - s4 * s3) / (1 + s1)^2 
+      }
+      pPpalpha[[j]] <- arr
+    }
+    prpalpha <- vector("list", kX + 1)
+    for(i in 1:(kX + 1)){
+      prpalphal <- vector("list", JX)
+      for(j in 1:JX){
+        tempmat <- matrix(0, nrow = cats[j], ncol = length(qp))
+        for(k in 1:cats[j]) tempmat <- t((cprobs[[j]][[k]][i,]) * t(pPpalpha[[j]][[k]]))  + tempmat
+        prpalphal[[j]] <- rowSums(t((dnorm(qp) / sum(dnorm(qp))) * t(tempmat)))
+      }
+      prpalpha[[i]] <- prpalphal
+    }
+    return(prpalpha)
+  }
+  
+}
+
+polyprob <- function(a, b, cats, model, qpoints){
+  JX <- length(cats)
+  kX <- sum(cats) - JX
+  
+  probs <- vector("list", JX)
+  if(model=="GPCM"){
+    for(i in 1:JX){
+      out <- matrix(0, nrow = cats[i], ncol = length(qpoints))
+      denom <- 0
+      for(j in 1:(cats[i] - 1)){
+        temp <- 0
+        for(l in 1:j) temp <- a[i] * (qpoints - b[[i]][l]) + temp 
+        denom <- exp(temp) + denom
+      }
+      out[1,] <- 1 / (1 + denom)
+      for(j in 1:(cats[i] - 1)){
+        numer <- exp(j * a[i] * qpoints - a[i] * sum(b[[i]][1:j]))
+        out[j + 1,] <- numer / (1 + denom)
+      }  
+      probs[[i]] <- out
+    }
+    
+  }
+  
+  if(model=="GRM"){
+    for(i in 1:JX){
+      out <- matrix(0, nrow = cats[i], ncol = length(qpoints))
+      out[1,] <- 1 - 1 / (1 + exp(-a[i] * (qpoints - b[[i]][1])))
+      out[cats[i],] <- 1/(1 + exp(-a[i] * (qpoints - b[[i]][cats[i]-1])))
+      for(j in 2:(cats[i] - 1)) out[j,] <- 1 / (1 + exp(-a[i] * (qpoints - b[[i]][j-1]))) - 1 / (1 + exp(-a[i] * (qpoints - b[[i]][j])))
+      probs[[i]] <- out
+    }
+  }
+  return(probs)
 }
 
 probpl <- function(qpoints, b, model="3pl", a=0, c=0){

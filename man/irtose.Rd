@@ -7,11 +7,12 @@ Item Response Theory Observed-Score Kernel Equating
 A function to conduct an equating between two parallel tests using item response theory (IRT) observed-score kernel equating. Designs available are equivalent groups (EG) and non-equivalent groups with anchor test using chain equating (NEAT CE).
 }
 \usage{
-irtose(design="CE", P, Q, x, y, a=0, qpoints, model="2pl", see="analytical", 
-replications=50, kernel="gaussian", h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), 
-hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, 
-wpen=0.5, linear=FALSE, slog=1, bunif=1, altopt=FALSE, wS=0.5, eqcoef="mean-mean", 
-robust=FALSE)
+irtose(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), model="2pl", catsX=0, 
+catsY=0, catsA=0, see="analytical", replications=50, kernel="gaussian", 
+h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), 
+hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, wpen=0.5, 
+linear=FALSE, slog=1, bunif=1, altopt=FALSE, wS=0.5, eqcoef="mean-mean", robust=FALSE,
+distribution = list("normal", par = data.frame(mu = 0, sigma = 1)))
 }
 
 \arguments{
@@ -45,6 +46,18 @@ A numeric vector containing the quadrature points used in the equating. If not s
 
   \item{model}{
 A character vector indicating which IRT model to use. Available models are 2pl and 3pl. Default is "2pl".
+}
+
+  \item{catsX}{
+The number of category answers for each item on test X. (GPCM and GRM only.)
+}
+
+  \item{catsY}{
+The number of category answers for each item on test Y. (GPCM and GRM only.)
+}
+
+  \item{catsA}{
+The number of category answers for each item on test A. (GPCM and GRM only.)
 }
 
   \item{see}{
@@ -101,6 +114,10 @@ Character vector indicating which equating coefficients to use. Options are "mea
 
   \item{robust}{
 Logical indicating whether the robust covariance matrix should be calculated for the IRT model. Warning: is slow for large models and large sample sizes. Default is FALSE. (Only for 2pl and GPCM models.)
+}
+
+  \item{distribution}{
+A list containing information regarding the latent distribution. Default is the standard normal distribution.
 }
 
 }

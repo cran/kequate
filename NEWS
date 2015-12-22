@@ -1,3 +1,8 @@
+Changes in version: kequate_1.5.0
+
+* Added support for objects from package mirt to the function irtose().
+* Added IRT observed-score equating for EG/CE/PSE with polytomous IRT models (GPCM and GRM). For polytomous IRT models, mirt is supported but ltm is not.
+
 Changes in version: kequate_1.4.0
 
 * Added IRT-OSE for the NEAT PSE design to function irtose(). The equating coefficients available in equateIRT are used.

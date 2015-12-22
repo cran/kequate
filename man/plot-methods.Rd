@@ -1,15 +1,17 @@
 \name{plot-methods}
 \docType{methods}
 \alias{plot-methods}
-\alias{plot,genseed-method}
-\alias{plot,keout-method}
-\alias{plot,cdist-method}
+\alias{plot,ANY,ANY-method}
+\alias{plot,cdist,ANY-method}
+\alias{plot,genseed,ANY-method}
+\alias{plot,keout,ANY-method}
 \title{ ~~ Methods for Function plot  ~~}
 \description{
  ~~ Methods for function \code{plot}  ~~
 }
 \section{Methods}{
 \describe{
+
 \item{\code{signature(x = "cdist")}}{
 Plots the conditional means and variances of an observed and an estimated bivariate test score distribution.
 }

@@ -11,8 +11,8 @@ The kernel equating technique for equating test scores is implemented, supportin
 \tabular{ll}{
 Package: \tab kequate\cr
 Type: \tab Package\cr
-Version: \tab 1.4.0\cr
-Date: \tab 2014-06-04\cr
+Version: \tab 1.5.0\cr
+Date: \tab 2015-12-22\cr
 License: \tab GPL-3\cr
 LazyLoad: \tab yes\cr
 Depends: \tab R (>=2.11.0), methods, graphics, stats, ltm\cr
@@ -22,7 +22,7 @@ Depends: \tab R (>=2.11.0), methods, graphics, stats, ltm\cr
 \author{
 Bjorn Andersson, Kenny Branberg and Marie Wiberg
 
-Maintainer: Bjorn Andersson \email{bjorn.andersson@statistik.uu.se}
+Maintainer: Bjorn Andersson \email{bjoern.h.andersson@gmail.com}
 
 }
 \references{
