@@ -1,3 +1,12 @@
+Changes in version: kequate_1.6.0
+
+* Added bandwidth selection with the double smoothing method, via the new argument DS = TRUE/FALSE.
+* Added legends to the plotting method for cdist objects.
+* Fixed support for unequal test lengths in the IRT-OSE EG design.
+* Fixed support for mirt objects with dichotomous models in the IRT-OSE EG design.
+* Fixed an issue where a missing qpoints argument would cause problems when using input arguments from package ltm.
+* Fixed an issue related to the usage of functions in equateIRT which affected the IRT-OSE PSE design with dichotomous models.
+
 Changes in version: kequate_1.5.0
 
 * Added support for objects from package mirt to the function irtose().

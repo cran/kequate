@@ -12,7 +12,7 @@ catsY=0, catsA=0, see="analytical", replications=50, kernel="gaussian",
 h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), 
 hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, wpen=0.5, 
 linear=FALSE, slog=1, bunif=1, altopt=FALSE, wS=0.5, eqcoef="mean-mean", robust=FALSE,
-distribution = list("normal", par = data.frame(mu = 0, sigma = 1)))
+distribution = list("normal", par = data.frame(mu = 0, sigma = 1)), DS = FALSE)
 }
 
 \arguments{
@@ -120,6 +120,10 @@ Logical indicating whether the robust covariance matrix should be calculated for
 A list containing information regarding the latent distribution. Default is the standard normal distribution.
 }
 
+  \item{DS}{
+Logical which enables bandwidth selection with the double smoothing method.
+}
+
 }
 \value{
 An S4 object of class 'keout' which includes the following slots (accessed by using the get functions):
@@ -155,6 +159,7 @@ Ogasawara, H. (2003). Asymptotic standard errors of IRT observed-score equating 
 \code{\link{kequate}}
 }
 \examples{
+\dontrun{
 #Generate data, non-equivalent groups with chain equating design
 akX <- runif(15, 0.5, 2)
 bkX <- rnorm(15)
@@ -183,4 +188,5 @@ sim2plQ <- ltm(dataQ ~ z1, IRT.param=TRUE)
 
 #Equate the two tests
 sim2plan <- irtose("CE", sim2plP, sim2plQ, 0:15, 0:15, 0:15)
+}
 }

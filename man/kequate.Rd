@@ -59,6 +59,8 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
 
 \sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
+
+\sQuote{DS}    Logical which enables bandwidth selection with the double smoothing method.
 }
 
 \subsection{SG design}{\cr
@@ -91,6 +93,8 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{slog}    The parameter used in defining the logistic kernel. Default is 1.
 
 \sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
+
+\sQuote{DS}    Logical which enables bandwidth selection with the double smoothing method.
 }
 
 \subsection{CB design}{\cr
@@ -127,6 +131,8 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
 
 \sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
+
+\sQuote{DS}    Logical which enables bandwidth selection with the double smoothing method.
 }
 
 \subsection{NEAT PSE or NEC design}{\cr
@@ -163,6 +169,8 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
 
 \sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
+
+\sQuote{DS}    Logical which enables bandwidth selection with the double smoothing method.
 }
 
 \subsection{NEAT CE design}{\cr
@@ -199,6 +207,8 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
 
 \sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
+
+\sQuote{DS}    Logical which enables bandwidth selection with the double smoothing method.
 }
 }
 \value{
@@ -246,6 +256,7 @@ keEGlog<-kequate("EG", 0:4, 0:4, glmx, glmy, kernel="logistic", slog=sqrt(3)/pi)
 keEGuni<-kequate("EG", 0:4, 0:4, glmx, glmy, kernel="uniform", bunif=sqrt(3))
 plot(keEG)
 
+\dontrun{
 #NEAT example using simulated data
 data(simeq)
 freq1 <- kefreq(simeq$bivar1$X, 0:20, simeq$bivar1$A, 0:10)
@@ -263,4 +274,5 @@ summary(keNEATCE)
 keNEATCEirt <- kequate("NEAT_CE", 0:20, 0:20, 0:10, glm1, glm2, irtx=simeq$irtNEATx, 
 irty=simeq$irtNEATy)
 getEquating(keNEATCEirt)
+}
 }
