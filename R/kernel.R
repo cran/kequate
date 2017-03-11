@@ -1186,9 +1186,6 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       ltmQ <- grmQ
     }
     
-    if(missing(qpoints))
-      qpoints <- -ltmP$GH$Z[,2]
-    
     if(model=="1pl"){
       irtx <- probpl(qpoints, bx, model)
       irtaP <- probpl(qpoints, baP, model)
@@ -1444,16 +1441,23 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       input[[3]] <- list(sQ, y, M, covsQ)
       input[[4]] <- list(tQ, a, M, covtQ)
       
-      if(linear == T) bandwidth <- "linear"
-      if(linear == F && DS == F) bandwidth <- "PEN"
-      if(linear == F && DS == T) bandwidth <- "DS"
-      if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
-      
-      hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
-      hxP <- hxhy[1]
-      haP <- hxhy[2]
-      hyQ <- hxhy[3]
-      haQ <- hxhy[4]
+	  if(h$hxP == 0 && h$haP == 0 && h$hyQ == 0 && h$haQ == 0){
+		  if(linear == T) bandwidth <- "linear"
+		  if(linear == F && DS == F) bandwidth <- "PEN"
+		  if(linear == F && DS == T) bandwidth <- "DS"
+		  if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+			  
+		  hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		  hxP <- hxhy[1]
+		  haP <- hxhy[2]
+		  hyQ <- hxhy[3]
+		  haQ <- hxhy[4]
+	  } else{
+			hxP <- h$hxP
+			haP <- h$haP
+			hyQ <- h$hyQ
+			haQ <- h$haP
+	  }
       
 
     cdfxP <- cdf(rP, hxP, meanx, varx, kernel, slog, bunif)
@@ -2090,14 +2094,18 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
        input[[1]] <- list(r, x, N, covr)
        input[[2]] <- list(s, y, N, covs)
        
-       if(linear == T) bandwidth <- "linear"
-       if(linear == F && DS == F) bandwidth <- "PEN"
-       if(linear == F && DS == T) bandwidth <- "DS"
-       if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
-       
-       hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
-       hx <- hxhy[1]
-       hy <- hxhy[2]
+	   if(h$hx == 0 && h$hy == 0){
+			if(linear == T) bandwidth <- "linear"
+			if(linear == F && DS == F) bandwidth <- "PEN"
+			if(linear == F && DS == T) bandwidth <- "DS"
+			if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+			hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+			hx <- hxhy[1]
+			hy <- hxhy[2]
+	   } else{
+			hx <- h$hx
+			hy <- h$hy
+	   }    
        
     cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)     							#Continuize the estimated cdf:s for X and Y.
     cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
@@ -2280,10 +2288,6 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       ltmQ <- grmQ
     }
     
-    
-    if(missing(qpoints))
-      qpoints <- -ltmP$GH$Z[,2]
-    
     if(model=="1pl"){
       irtpars <- list(bx=bx, by=by, baP=baP, baQ=baQ)
       irtrP <- probpl(qpoints, bx, model)
@@ -2454,14 +2458,20 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     input[[1]] <- list(r, x, N, covr)
     input[[2]] <- list(s, y, N, covs)
     
-    if(linear == T) bandwidth <- "linear"
-    if(linear == F && DS == F) bandwidth <- "PEN"
-    if(linear == F && DS == T) bandwidth <- "DS"
-    if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
     
-    hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
-    hx <- hxhy[1]
-    hy <- hxhy[2]
+    
+    if(h$hx == 0 && h$hy == 0){
+		if(linear == T) bandwidth <- "linear"
+		if(linear == F && DS == F) bandwidth <- "PEN"
+		if(linear == F && DS == T) bandwidth <- "DS"
+		if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		hx <- hxhy[1]
+		hy <- hxhy[2]
+	} else{
+		hx <- h$hx
+		hy <- h$hy
+	} 
     
     cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)       						#Continuize the estimated cdf:s for X and Y.
     cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
@@ -2923,7 +2933,7 @@ kefreq<-function(in1, xscores, in2, ascores){
       return(data.frame(X=rep(xscores, length(ascores)), A=rep(ascores, each=length(xscores)), frequency))
     }
     else
-      return
+      return()
 }
 
 #general implementation of IRT observed score equating in the KE framework
@@ -3289,15 +3299,16 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
     input <- vector("list", 2)
     input[[1]] <- list(r, x, N, Ur %*% t(Ur))
     input[[2]] <- list(s, y, M, Vs %*% t(Vs))
-    
-    if(linear == T) bandwidth <- "linear"
-    if(linear == F && DS == F) bandwidth <- "PEN"
-    if(linear == F && DS == T) bandwidth <- "DS"
-    if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
-    
-    hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
-    hx <- hxhy[1]
-    hy <- hxhy[2]
+
+    if(hx == 0 && hy == 0){
+		if(linear == T) bandwidth <- "linear"
+		if(linear == F && DS == F) bandwidth <- "PEN"
+		if(linear == F && DS == T) bandwidth <- "DS"
+		if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		hx <- hxhy[1]
+		hy <- hxhy[2]
+	}
     
     cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)
     cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
@@ -3410,14 +3421,15 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   input[[1]] <- list(r, x, N, Cr %*% t(Cr))
   input[[2]] <- list(s, y, M, Cs %*% t(Cs))
   
-  if(linear == T) bandwidth <- "linear"
-  if(linear == F && DS == F) bandwidth <- "PEN"
-  if(linear == F && DS == T) bandwidth <- "DS"
-  if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
-  
-  hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
-  hx <- hxhy[1]
-  hy <- hxhy[2]
+  if(hx == 0 && hy == 0){
+		if(linear == T) bandwidth <- "linear"
+		if(linear == F && DS == F) bandwidth <- "PEN"
+		if(linear == F && DS == T) bandwidth <- "DS"
+		if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		hx <- hxhy[1]
+		hy <- hxhy[2]
+  }
   
   cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif) 									#Continuize the estimated cdf:s for X and Y.
   cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
@@ -3725,17 +3737,18 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
   input[[3]] <- list(sQ, y, M, Uq %*% t(Uq))
   input[[4]] <- list(tQ, a, M, Vq %*% t(Vq))
   
-  if(linear == T) bandwidth <- "linear"
-  if(linear == F && DS == F) bandwidth <- "PEN"
-  if(linear == F && DS == T) bandwidth <- "DS"
-  if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
-  
-  hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
-  hxP <- hxhy[1]
-  haP <- hxhy[2]
-  hyQ <- hxhy[3]
-  haQ <- hxhy[4]
-  
+  if(hxP == 0 && haP == 0 && hyQ == 0 && haQ == 0){
+	if(linear == T) bandwidth <- "linear"
+	if(linear == F && DS == F) bandwidth <- "PEN"
+	if(linear == F && DS == T) bandwidth <- "DS"
+	if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+			  
+	hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+	hxP <- hxhy[1]
+	haP <- hxhy[2]
+	hyQ <- hxhy[3]
+	haQ <- hxhy[4]
+  }
   
   cdfxP<-cdf(rP, hxP, meanx, varx, kernel, slog, bunif)
   cdfyQ<-cdf(sQ, hyQ, meany, vary, kernel, slog, bunif)
@@ -4070,14 +4083,15 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
   input[[1]] <- list(r, x, N, Ur %*% t(Ur))
   input[[2]] <- list(s, y, M, Vs %*% t(Vs))
   
-  if(linear == T) bandwidth <- "linear"
-  if(linear == F && DS == F) bandwidth <- "PEN"
-  if(linear == F && DS == T) bandwidth <- "DS"
-  if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
-  
-  hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
-  hx <- hxhy[1]
-  hy <- hxhy[2]
+  if(hx == 0 && hy == 0){
+		if(linear == T) bandwidth <- "linear"
+		if(linear == F && DS == F) bandwidth <- "PEN"
+		if(linear == F && DS == T) bandwidth <- "DS"
+		if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		hx <- hxhy[1]
+		hy <- hxhy[2]
+  }
   
   cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)
   cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
@@ -4284,15 +4298,15 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
   input[[1]] <- list(r, x, N, Ur %*% t(Ur))
   input[[2]] <- list(s, y, M, Vr %*% t(Vr))
   
-  if(linear == T) bandwidth <- "linear"
-  if(linear == F && DS == F) bandwidth <- "PEN"
-  if(linear == F && DS == T) bandwidth <- "DS"
-  if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
-  
-  hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
-  hx <- hxhy[1]
-  hy <- hxhy[2]
-  
+  if(hx == 0 && hy == 0){
+		if(linear == T) bandwidth <- "linear"
+		if(linear == F && DS == F) bandwidth <- "PEN"
+		if(linear == F && DS == T) bandwidth <- "DS"
+		if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		hx <- hxhy[1]
+		hy <- hxhy[2]
+  }  
   
   cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)
   cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)

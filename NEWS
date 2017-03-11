@@ -1,3 +1,7 @@
+Changes in version: kequate_1.6.1
+
+* Fixed manual bandwidth specification when using pre-smoothing, which was broken since version 1.6.0.
+
 Changes in version: kequate_1.6.0
 
 * Added bandwidth selection with the double smoothing method, via the new argument DS = TRUE/FALSE.
