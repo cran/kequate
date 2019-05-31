@@ -8,16 +8,17 @@ A function to conduct an equating between two parallel tests using item response
 }
 \usage{
 irtose(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), model="2pl", catsX=0, 
-catsY=0, catsA=0, see="analytical", replications=50, kernel="gaussian", 
+catsY=0, catsA=0, see="analytical", replications=199, kernel="gaussian", 
 h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), 
 hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, wpen=0.5, 
 linear=FALSE, slog=1, bunif=1, altopt=FALSE, wS=0.5, eqcoef="mean-mean", robust=FALSE,
-distribution = list("normal", par = data.frame(mu = 0, sigma = 1)), DS = FALSE)
+distribution = list("normal", par = data.frame(mu = 0, sigma = 1)), DS = FALSE, 
+CV = FALSE)
 }
 
 \arguments{
   \item{design}{
-A character vector indicating which design to use. Possible designs are EG and CE.
+A character vector indicating which design to use. Possible designs are EG, CE and PSE.
 }
 
   \item{P}{
@@ -37,7 +38,7 @@ Vector of possible score values of the main test Y to be equated.
 }
 
   \item{a}{
-Vector of possible score values of the anchor test A. (For NEAT designs only.)
+Vector of possible score values of the anchor test A. (Required for all NEAT designs.)
 }
 
   \item{qpoints}{
@@ -45,7 +46,7 @@ A numeric vector containing the quadrature points used in the equating. If not s
 }
 
   \item{model}{
-A character vector indicating which IRT model to use. Available models are 2pl and 3pl. Default is "2pl".
+A character vector indicating which IRT model to use. Available models for dichotomoous data are 2pl and 3pl while available models for polytomous data are GPCM and GRM. Default is "2pl".
 }
 
   \item{catsX}{
@@ -65,7 +66,7 @@ A character vector indicating which standard errors of equating to use. Options 
 }
 
   \item{replications}{
-The number of bootstrap replications if using the bootstrap standard error calculations. Default is 50.
+The number of bootstrap replications if using the bootstrap standard error calculations. Default is 199.
 }
 
   \item{kernel}{
@@ -109,7 +110,7 @@ The weighting of group P in a PSE equating. Default is 0.5.
 }
 
   \item{eqcoef}{
-Character vector indicating which equating coefficients to use. Options are "mean-mean", "mean-gmean", "mean-sigma", "Stocking-Lord" and "Haebara". Default is "mean-mean". (Only for PSE.)
+Character vector indicating which equating coefficients to use. Options are "mean-mean", "mean-gmean", "mean-sigma", "Stocking-Lord" and "Haebara". Default is "mean-mean". (Only for PSE. With polytomous IRT models, only "mean-mean" is available.)
 }
 
   \item{robust}{
@@ -117,11 +118,15 @@ Logical indicating whether the robust covariance matrix should be calculated for
 }
 
   \item{distribution}{
-A list containing information regarding the latent distribution. Default is the standard normal distribution.
+A list containing information regarding the latent distribution. Default is the standard normal distribution. (Currently not in use.)
 }
 
   \item{DS}{
 Logical which enables bandwidth selection with the double smoothing method.
+}
+
+\item{CV}{
+Logical which enables bandwidth selection with the cross-validation method.
 }
 
 }
@@ -145,12 +150,19 @@ An S4 object of class 'keout' which includes the following slots (accessed by us
 \item{irt}{A list containing the objects from the package ltm and the adjusted asymptotic covariance matrices of the item parameters.}
 }
 \references{
-von Davier, A.A., Holland, P.W., Thayer, D.T. (2004). \emph{The Kernel Method of Test Equating.} Springer-Verlag New York.
+Andersson, B. (2016). Asymptotic Standard Errors of Observed-Score Equating With Polytomous IRT
+Models. \emph{Journal of Educational Measurement}, \bold{53}, 459–477.
 
-Ogasawara, H. (2003). Asymptotic standard errors of IRT observed-score equating methods. \emph{Psychometrika}, \bold{68(2)}, 193-211.
+Andersson, B. (2018). Asymptotic Variance of Linking Coefficient Estimators for Polytomous IRT Models. \emph{Applied Psychological Measurement}, \bold{42}, 192–205.
+
+Andersson, B. and Wiberg, M. (2017). Item Response Theory Observed-Score Kernel Equating. \emph{Psychometrika}, \bold{83}, 48–67. 
+
+von Davier, A.A., Holland, P.W., and Thayer, D.T. (2004). \emph{The Kernel Method of Test Equating.} Springer-Verlag New York.
+
+Ogasawara, H. (2003). Asymptotic standard errors of IRT observed-score equating methods. \emph{Psychometrika}, \bold{68}, 193-211.
 }
 \author{
-\email{bjorn.andersson@statistik.uu.se}\cr
+\email{bjoern.h.andersson@gmail.com}\cr
 \email{kenny.branberg@stat.umu.se}\cr
 \email{marie.wiberg@stat.umu.se}
 }

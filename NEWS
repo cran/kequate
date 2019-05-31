@@ -1,3 +1,9 @@
+Changes in version: kequate_1.6.2
+
+* Fixed an issue related to IRT-OSE PSE with dichotomous data.
+* Updated help files for the irtose() function.
+* Addressed warning messages due to usage of deprecated R functionality.
+
 Changes in version: kequate_1.6.1
 
 * Fixed manual bandwidth specification when using pre-smoothing, which was broken since version 1.6.0.

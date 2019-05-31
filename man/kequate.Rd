@@ -95,6 +95,8 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{bunif}    The parameter used in defining the uniform kernel. Default is 0.5.
 
 \sQuote{DS}    Logical which enables bandwidth selection with the double smoothing method.
+
+\sQuote{CV}    Logical which enables bandwidth selection with the cross-validation method.
 }
 
 \subsection{CB design}{\cr
@@ -133,6 +135,8 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
 
 \sQuote{DS}    Logical which enables bandwidth selection with the double smoothing method.
+
+\sQuote{CV}    Logical which enables bandwidth selection with the cross-validation method.
 }
 
 \subsection{NEAT PSE or NEC design}{\cr
@@ -171,6 +175,8 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
 
 \sQuote{DS}    Logical which enables bandwidth selection with the double smoothing method.
+
+\sQuote{CV}    Logical which enables bandwidth selection with the cross-validation method.
 }
 
 \subsection{NEAT CE design}{\cr
@@ -209,6 +215,8 @@ Besides the above argument, additional arguments must be provided for the differ
 \sQuote{altopt}    Logical which sets the bandwidth parameter equal to a variant of Silverman's rule of thumb. Default is FALSE.
 
 \sQuote{DS}    Logical which enables bandwidth selection with the double smoothing method.
+
+\sQuote{CV}    Logical which enables bandwidth selection with the cross-validation method.
 }
 }
 \value{

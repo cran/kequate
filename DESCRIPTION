@@ -1,16 +1,20 @@
 Package: kequate
+Encoding: UTF-8
 Type: Package
 Title: The Kernel Method of Test Equating
-Version: 1.6.1
-Date: 2017-03-11
-Author: Bjorn Andersson, Kenny Branberg and Marie Wiberg
-Maintainer: Bjorn Andersson <bjoern.h.andersson@gmail.com>
-Description: Implements the kernel method of test equating using the CB, EG, SG, NEAT CE/PSE and NEC designs, supporting gaussian, logistic and uniform kernels and unsmoothed and pre-smoothed input data.
+Version: 1.6.2
+Date: 2019-05-31
+Authors@R: c(person("Björn", "Andersson", email = "bjoern.h.andersson@gmail.com", role = c("aut", "cre")), person("Kenny", "Bränberg", role = c("aut")), person("Marie", "Wiberg", role = c("aut")))
+Description: Implements the kernel method of test equating as defined in von Davier, A. A., Holland, P. W. and Thayer, D. T. (2004) <doi: 10.1007/b97446> and Andersson, B. and Wiberg, M. (2017) <doi: 10.1007/s11336-016-9528-7> using the CB, EG, SG, NEAT CE/PSE and NEC designs, supporting Gaussian, logistic and uniform kernels and unsmoothed and pre-smoothed input data.
 License: GPL-2 | GPL-3
-LazyLoad: yes
 Depends: R(>= 2.11.0), methods, stats, graphics, ltm
 Imports: equateIRT, mirt, utils
+LazyData: true
 NeedsCompilation: no
-Packaged: 2017-03-11 09:30:09 UTC; bjorn
+Packaged: 2019-05-31 16:13:53 UTC; bjorand
+Author: Björn Andersson [aut, cre],
+  Kenny Bränberg [aut],
+  Marie Wiberg [aut]
+Maintainer: Björn Andersson <bjoern.h.andersson@gmail.com>
 Repository: CRAN
-Date/Publication: 2017-03-11 11:05:23
+Date/Publication: 2019-05-31 17:30:08 UTC

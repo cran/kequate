@@ -347,8 +347,11 @@ adjltm <- function(mat, pars, design, model){
 }
 
 altoptdensity <- function(r, h, var, mean, eqx, x){
+  h <- as.vector(h)
   res<-numeric(length(eqx))
-  a<-sqrt(var/(var+h^2))
+  a<-as.vector(sqrt(var/(var+h^2)))
+  x <- as.vector(x)
+  mean <- as.vector(mean)
   for(i in 1:length(eqx)){
     ff<-0
     for(j in 1:length(r)){
@@ -381,16 +384,21 @@ bandwidth.select <- function(input, bandwidth, KPEN = 0, kernel = "gaussian", sl
     }
     if(bandwidth == "DS"){
       out[i] <- optimize(DS, interval=c(0, 4), tol = .Machine$double.eps^0.5, r = rP, x, var=varx, mean=meanx, g=4, Sigmar = input[[i]][[4]])$minimum
-    }		
+    }
+	if(bandwidth == "CV"){
+      out[i] <- optimize(CV, interval=c(0, 4), tol = .Machine$double.eps^0.5, r = rP, x, var=varx, mean=meanx)$minimum
+    }
   }
   return(out)
 }
 
 #continuization function
 cdf<-function(r, h, mean, var, kernel, slog, bunif){    #r=estimated score probabilities, h=optimal h, mean of test, var of test
-  a<-sqrt(var/(var+h^2))
-  al<-sqrt(var/(var+((pi^2*slog^2)/3)*h^2))
-  au<-sqrt(var/(var+((bunif^2)/3)*h^2))
+  h <- as.vector(h)
+  mean <- as.vector(mean)
+  a<-as.vector(sqrt(var/(var+h^2)))
+  al<-as.vector(sqrt(var/(var+((pi^2*slog^2)/3)*h^2)))
+  au<-as.vector(sqrt(var/(var+((bunif^2)/3)*h^2)))
   x<-c(0:(length(r)-1))
   cdf<-numeric(length(r))
   for(i in 1:length(r)){
@@ -535,19 +543,44 @@ ccmnom <- function(cats, probs, qpoints){
 
 #sample mean, variance, skewness and kurtosis for a probability or frequency vector r and score value vector x
 cmoments<-function(r, x){
-	mean<-(r/sum(r))%*%x
-	var<-(x^2%*%(r/sum(r))-mean^2)
+	mean<-as.vector((r/sum(r))%*%x)
+	var<-as.vector(x^2%*%(r/sum(r))-mean^2)
 	skewness<-((r/sum(r))%*%(x-mean)^3)/var^(3/2)
 	kurtosis<-(1/var^2)*(r/sum(r))%*%((x-mean)^4)
 	return(c(mean, var, skewness, kurtosis))
 }
 
+#Cross-validation bandwidth
+CV<-function(h, r, x, var, mean){
+  h <- as.numeric(h)
+  r <- as.numeric(r)
+  x <- as.numeric(x)
+  fhat<-numeric(length(x))
+  a<-sqrt(var/(var+h^2))
+  Kmat<-matrix(NA,ncol=length(x)-1,nrow=length(x))
+  for(i in 1:length(x)){
+    ff<-0
+    rcv<-r[-i]
+    xcv<-x[-i]
+    for(j in 1:length(rcv)){
+      Rx<-(x[i]-a*xcv[j]-(1-a)*mean)/(a*h)
+      Kmat[i,j]<-dnorm(Rx)/(a*h)
+      }
+    fhat[i]<-((Kmat/rowSums(Kmat))%*%rcv)[i]
+    }
+  cv<-mean((r-fhat)^2)
+  return(cv)
+  }
+
 #density for each score value
 densityeq<-function(r, h, var, mean, eqx, x, kernel, slog, bunif){
   res<-numeric(length(eqx))
-  a<-sqrt(var/(var+h^2))
-  al<-sqrt(var/(var+((pi^2*slog^2)/3)*h^2))
-  au<-sqrt(var/(var+((bunif^2)/3)*h^2))
+  h <- as.vector(h)
+  a<-as.vector(sqrt(var/(var+h^2)))
+  al<-as.vector(sqrt(var/(var+((pi^2*slog^2)/3)*h^2)))
+  au<-as.vector(sqrt(var/(var+((bunif^2)/3)*h^2)))
+  x <- as.vector(x)
+  mean <- as.vector(mean)
   for(i in 1:length(eqx)){
     ff<-0
     if(kernel=="gaussian")
@@ -565,9 +598,13 @@ densityeq<-function(r, h, var, mean, eqx, x, kernel, slog, bunif){
 
 #calculates the derivatives of F w/ respect to r for the score values in eqx
 dFdr<-function(r, h, var, mean, fprim, eqx, x, kernel, slog, bunif, altopt=FALSE, altfprim=0){        	
-  a<-sqrt(var/(var+h^2))
-  al<-sqrt(var/(var+((pi^2*slog^2)/3)*h^2))
-  au<-sqrt(var/(var+((bunif^2)/3)*h^2))
+  x <- as.vector(x)
+  h <- as.vector(h)
+  mean <- as.vector(mean)
+  var <- as.vector(var)
+  a <- as.vector(sqrt(var/(var+h^2)))
+  al <- as.vector(sqrt(var/(var+((pi^2*slog^2)/3)*h^2)))
+  au <- as.vector(sqrt(var/(var+((bunif^2)/3)*h^2)))
   dFdrest<-matrix(0, length(eqx), ncol=length(x))
   #	if(kernel=="uniform")
   #		
@@ -611,15 +648,19 @@ return(dFdrest)									#We obtain a J x J matrix of derivatives evaluated at ea
 
 
 DS <- function(h, r, x, var, mean, g, Sigmar){
+  g <- as.numeric(g)
+  h <- as.numeric(h)
+  r <- as.numeric(r)
+  x <- as.numeric(x)
   xx <- seq(min(x), max(x), by = 0.5)
   xsel <- seq(min(xx) + 1, 2 * (max(xx) + 1), by = 2)
   fhath <- fhatg <- numeric(length(xx))
   Kmath <- Kmatg <- matrix(NA, ncol = length(x), nrow = length(xx))
-  ah <- sqrt(var / (var + h^2))
-  ag <- sqrt(var / (var + g^2))
+  ah <- as.numeric(sqrt(var / (var + h^2)))
+  ag <- as.numeric(sqrt(var / (var + g^2)))
   for(i in 1:length(xx)){
-    Rxh <- (xx[i] - ah * x - (1 - ah) * mean) / (ah * h)
-    Rxg <- (xx[i] - ag * x - (1 - ag) * mean) / (ag * g)
+    Rxh <- (xx[i] - ah * x - (1 - ah) * as.numeric(mean)) / (ah * h)
+    Rxg <- (xx[i] - ag * x - (1 - ag) * as.numeric(mean)) / (ag * g)
     Kmath[i,] <- dnorm(Rxh) / (ah * h)
     Kmatg[i,] <- dnorm(Rxg) / (ag * g)
     fhath[i] <- sum(r * Kmath[i,])
@@ -646,6 +687,7 @@ eqinv<-function(cdf, r, x, var, mean, h, kernel, slog, bunif, smoothed=TRUE, IRT
 	eqf<-numeric(length(cdf))
 	maxx <- max(x)
 	minx <- min(x)
+	h <- as.vector(h)
 	for(i in 1:length(cdf)){
 		u<-cdf[i]
 		ggg<-function(x1, r, mean, var, h, u, kernel, slog, bunif){
@@ -981,7 +1023,7 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
   }
 }
 
-irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), model="2pl", catsX = 0, catsY = 0, catsA = 0, see="analytical", replications=50, kernel="gaussian", h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, wpen=0.5, linear=FALSE, slog=1, bunif=1, altopt=FALSE, wS=0.5, eqcoef="mean-mean", robust=FALSE, distribution = list("normal", par = data.frame(mu = 0, sigma = 1)), DS = FALSE){
+irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), model="2pl", catsX = 0, catsY = 0, catsA = 0, see="analytical", replications=199, kernel="gaussian", h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0), KPEN=0, wpen=0.5, linear=FALSE, slog=1, bunif=1, altopt=FALSE, wS=0.5, eqcoef="mean-mean", robust=FALSE, distribution = list("normal", par = data.frame(mu = 0, sigma = 1)), DS = FALSE, CV = FALSE){
   
   #P - object from ltm with IRT model for group P, where the first items are main test, the last are the anchor test OR a matrix of responses w/out missing values, rows are individuals, columns are items, the main test first, then the anchor test
   #Q - equivalent to P, for group Q
@@ -1445,7 +1487,8 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
 		  if(linear == T) bandwidth <- "linear"
 		  if(linear == F && DS == F) bandwidth <- "PEN"
 		  if(linear == F && DS == T) bandwidth <- "DS"
-		  if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		  if(linear == F && CV == T) bandwidth <- "CV"
+		  if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
 			  
 		  hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
 		  hxP <- hxhy[1]
@@ -2098,7 +2141,8 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
 			if(linear == T) bandwidth <- "linear"
 			if(linear == F && DS == F) bandwidth <- "PEN"
 			if(linear == F && DS == T) bandwidth <- "DS"
-			if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+			if(linear == F && CV == T) bandwidth <- "CV"
+			if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
 			hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
 			hx <- hxhy[1]
 			hy <- hxhy[2]
@@ -2302,8 +2346,9 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       dimnames(ltmPcf)[[1]] <- c(sprintf("X%03d", 1:(length(x)-1)), sprintf("A%03d", 1:(length(a)-1)))
       dimnames(ltmQcf)[[1]] <- c(sprintf("Y%03d", 1:(length(y)-1)), sprintf("A%03d", 1:(length(a)-1)))
       avoidprint <- capture.output({modPQ <- modIRT(coef=list(test1=ltmPcf, test2=ltmQcf), var=list(test1=covalphaP, test2=covalphaQ), names=paste("test", 1:2, sep=""), ltparam=TRUE)})
-      eqc <- direc(modPQ[2], modPQ[1], method=eqcoef)
-      
+	  #Changed direc() call to handle updated equateIRT package.
+      #eqc <- direc(modPQ[2], modPQ[1], method=eqcoef)
+      eqc <- direc(mods = modPQ, which = c(2,1), method=eqcoef)
       betaA <- eqc$A
       betaB <- eqc$B
       
@@ -2333,7 +2378,9 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
         dimnames(mirtQcf)[[1]] <- c(sprintf("Y%03d", 1:(length(y)-1)), sprintf("A%03d", 1:(length(a)-1)))
         avoidprint <- capture.output({modPQ <- modIRT(coef=list(test1=mirtPcf, test2=mirtQcf), var=list(test1=covalphaP, test2=covalphaQ), names=paste("test", 1:2, sep=""), ltparam=TRUE, lparam=TRUE)})
       }
-      eqc <- direc(modPQ[2], modPQ[1], method=eqcoef)
+	  #Changed direc() call to handle updated equateIRT package.
+      #eqc <- direc(modPQ[2], modPQ[1], method=eqcoef)
+	  eqc <- direc(mods = modPQ, which = c(2,1), method = eqcoef)
       
       betaA <- eqc$A
       betaB <- eqc$B
@@ -2464,7 +2511,8 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
 		if(linear == T) bandwidth <- "linear"
 		if(linear == F && DS == F) bandwidth <- "PEN"
 		if(linear == F && DS == T) bandwidth <- "DS"
-		if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		if(linear == F && CV == T) bandwidth <- "CV"
+		if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
 		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
 		hx <- hxhy[1]
 		hy <- hxhy[2]
@@ -3082,12 +3130,12 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
     PRE<-data.frame(PREYx)
     h<-data.frame(hx, hy)
     
-    if(irtx!=0 && irty!=0)
+    if(!identical(irtx, 0) && !identical(irty, 0))
       irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
     
     if(!linear){
       output<-data.frame(eqYx)
-      if(irtx!=0 && irty!=0){
+      if(!identical(irtx, 0) && !identical(irty, 0)){
         output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
         out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Unsmoothed CB equipercentile", equating=output)
         return(out)
@@ -3097,7 +3145,7 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
     }
     
     output<-data.frame(eqYx)
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
       out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(hxlin, hylin, irtout@h), kernel=kernel, type="Unsmoothed CB linear", equating=output)
       return(out)
@@ -3253,7 +3301,7 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
   PRE<-data.frame(PREYx)
   h<-data.frame(hx, hy)
   
-  if(irtx!=0 && irty!=0){
+  if(!identical(irtx, 0) && !identical(irty, 0)){
     irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
   }
   
@@ -3262,7 +3310,7 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
     SEEvectors<-new("SEEvect", SEEYx=SEEYxmat, SEEYxLIN=CBlin@SEEvect@SEEYxLIN)
     SEEDYx<-sqrt(rowSums((SEEYxmat-SEEvectors@SEEYxLIN)^2))
     output<-data.frame(eqYx, SEEYx, SEEDYx, eqYxLIN=CBlin@equating$eqYx, SEEYxLIN=CBlin@equating$SEEYx)
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEEDYx, eqYxLIN=CBlin@equating$eqYx, SEEYxLIN=CBlin@equating$SEEYx)
       out<-new("keout", Cp=Cp12, Cq=Cp21, SEEvect=SEEvectors, Pest=P12, Pobs=P12obs, Qest=P21, Qobs=P21obs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="CB equipercentile", equating=output)
       return(out)
@@ -3277,7 +3325,7 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
   return(out)
 }
 
-kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE, tlinear=FALSE, DS = FALSE){
+kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE, tlinear=FALSE, DS = FALSE, CV = FALSE){
   stopifnot(is(smoothed, "logical"))
   if(smoothed==FALSE){
     if(kernel=="uniform"){
@@ -3304,7 +3352,8 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
 		if(linear == T) bandwidth <- "linear"
 		if(linear == F && DS == F) bandwidth <- "PEN"
 		if(linear == F && DS == T) bandwidth <- "DS"
-		if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		if(linear == F && CV == T) bandwidth <- "CV"
+		if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
 		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
 		hx <- hxhy[1]
 		hy <- hxhy[2]
@@ -3338,13 +3387,13 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
     h<-data.frame(hx, hy)
     output<-data.frame(eqYx, SEEYx)
     
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
     }
     if(!linear){
       SEED_EG<-SEED(fprimeY, gprimeY, dFdreYEG, dGdseYEG, Ur, Vr, Us, Vs, r, s, meanx, varx, meany, vary, x, y, hxlin, hylin, slog, bunif)
       output<-data.frame(eqYx, SEEYx, SEED_EG@SEED)
-      if(irtx!=0 && irty!=0){
+      if(!identical(irtx, 0) && !identical(irty, 0)){
         output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEED_EG@SEED)
         out<-new("keout", Cr=Ur, Cs=Vs, SEEvect=SEED_EG@SEEvect, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin, irtout@h), kernel=kernel, type="Equipercentile EG without pre-smoothing", equating=output)
         return(out)
@@ -3358,7 +3407,7 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
     }
     SEEvectors<-new("SEEvect", SEEYx=matrix(0), SEEYxLIN=SEE_EYlin)
     output<-data.frame(eqYx, SEEYx)
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT)
       out<-new("keout", Cr=Ur, Cs=Vs, SEEvect=SEEvectors, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Linear EG without pre-smoothing", equating=output)
       return(out)
@@ -3425,7 +3474,8 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
 		if(linear == T) bandwidth <- "linear"
 		if(linear == F && DS == F) bandwidth <- "PEN"
 		if(linear == F && DS == T) bandwidth <- "DS"
-		if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		if(linear == F && CV == T) bandwidth <- "CV"
+		if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
 		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
 		hx <- hxhy[1]
 		hy <- hxhy[2]
@@ -3440,7 +3490,7 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   PRE<-data.frame(PREYx)
   h<-data.frame(hx, hy)
   
-  if(irtx!=0 && irty!=0){
+  if(!identical(irtx, 0) && !identical(irty, 0)){
     irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
   }
   
@@ -3472,7 +3522,7 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   if(!linear){
     SEED_EG<-SEED(fprimeY, gprimeY, dFdreYEG, dGdseYEG, Ur, Vr, Us, Vs, r, s, meanx, varx, meany, vary, x, y, hxlin, hylin, slog, bunif)
     output<-data.frame(eqYx, SEEYx, SEED_EG@SEED)
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEED_EG@SEED)
       out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEED_EG@SEEvect, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_EG@hlin, irtout@h), kernel=kernel, type="EG equipercentile", equating=output)
       return(out)
@@ -3486,7 +3536,7 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   }
   SEEvectors<-new("SEEvect", SEEYx=matrix(0), SEEYxLIN=SEE_EYlin)
   output<-data.frame(eqYx, SEEYx)
-  if(irtx!=0 && irty!=0){
+  if(!identical(irtx, 0) && !identical(irty, 0)){
     output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT)
     out<-new("keout", Cr=Cr, Cs=Cs, SEEvect=SEEvectors, Pest=matrix(r), Pobs=Pobs, Qest=matrix(s), Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="EG linear", equating=output)
     return(out)
@@ -3500,7 +3550,7 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   return(out)
 }
 
-kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ=0, hxPlin=0, hyQlin=0, haPlin=0, haQlin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE, DS = FALSE){
+kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ=0, hxPlin=0, hyQlin=0, haPlin=0, haQlin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE, DS = FALSE, CV = FALSE){
   stopifnot(is(smoothed, "logical"))
   if(smoothed==FALSE){
     if(kernel=="uniform"){
@@ -3612,12 +3662,12 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
     PRE<-data.frame(PREAx, PREYa)
     h<-data.frame(hxP, hyQ, haP, haQ, hxPlin, hyQlin, haPlin, haQlin)
     
-    if(irtx!=0 && irty!=0)
+    if(!identical(irtx, 0) && !identical(irty, 0))
       irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
     
     if(!linear){
       output<-data.frame(eqYx=eYCEeAx)      
-      if(irtx!=0 && irty!=0){
+      if(!identical(irtx, 0) && !identical(irty, 0)){
         output<-data.frame(eqYx=eYCEeAx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
         out<-new("keout", scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Unsmoothed NEAT CE equipercentile", equating=output)
         return(out)
@@ -3627,7 +3677,7 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
     }
     h<-data.frame(hxP, hyQ, haP, haQ)
     output<-data.frame(eqYx=eYCEeAx)
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       output<-data.frame(eqYx=eYCEeAx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
       out<-new("keout", scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Unsmoothed NEAT CE linear", equating=output)
       return(out)
@@ -3741,7 +3791,8 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
 	if(linear == T) bandwidth <- "linear"
 	if(linear == F && DS == F) bandwidth <- "PEN"
 	if(linear == F && DS == T) bandwidth <- "DS"
-	if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+	if(linear == F && CV == T) bandwidth <- "CV"
+	if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
 			  
 	hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
 	hxP <- hxhy[1]
@@ -3821,7 +3872,7 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
   SEEYxmat[,(dim(Up)[2]+1):(dim(Up)[2]+dim(Uq)[2])]<-(1/GprimeY)*(dHqdteY%*%Vq-dGdseY%*%Uq)    
   SEEYx<-(sqrt(rowSums(SEEYxmat^2)))                                                                            #SEE for equating x to Y
   
-  if(irtx!=0 && irty!=0){
+  if(!identical(irtx, 0) && !identical(irty, 0)){
     irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
   }
   
@@ -3830,7 +3881,7 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
     SEEvectors<-new("SEEvect", SEEYx=SEEYxmat, SEEYxLIN=CElin@SEEvect@SEEYxLIN)
     SEEDYx<-sqrt(rowSums((SEEYxmat-SEEvectors@SEEYxLIN)^2))
     output<-data.frame(eqYx=eYCEeAx, SEEYx=SEEYx, SEEDYx, eqYxLIN=CElin@equating$eqYx, SEEYxLIN=CElin@equating$SEEYx)      
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       output<-data.frame(eqYx=eYCEeAx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx=SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEEDYx, eqYxLIN=CElin@equating$eqYx,  SEEYxLIN=CElin@equating$SEEYx)
       out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="NEAT CE equipercentile", equating=output)
       return(out)
@@ -3842,7 +3893,7 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
   h<-data.frame(hxP, hyQ, haP, haQ)
   SEEvectlin<-new("SEEvect", SEEYx=matrix(0), SEEYxLIN=SEEYxmat)
   output<-data.frame(eqYx=eYCEeAx, SEEYx=SEEYx)
-  if(irtx!=0 && irty!=0){
+  if(!identical(irtx, 0) && !identical(irty, 0)){
     output<-data.frame(eqYx=eYCEeAx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx=SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT)
     out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectlin, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r=rP, cdfx=cdfxP), Y=data.frame(y, s=sQ, cdfy=cdfyQ), A=data.frame(a, tP, cdfaP, tQ, cdfaQ), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="NEAT CE linear", equating=output)
     return(out)      
@@ -3851,7 +3902,7 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
   return(out)
 }
 
-kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE, DS = FALSE){
+kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE, DS = FALSE, CV = FALSE){
   #    stopifnot((is(smoothed, "logical"))
   if(smoothed==FALSE){
     
@@ -3923,12 +3974,12 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
     PRE<-data.frame(PREYx)
     h<-data.frame(hx, hy)
     
-    if(irtx!=0 && irty!=0)
+    if(!identical(irtx, 0) && !identical(irty, 0))
       irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
     
     if(!linear){
       output<-data.frame(eqYx)
-      if(irtx!=0 && irty!=0){
+      if(!identical(irtx, 0) && !identical(irty, 0)){
         output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
         out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Equipercentile NEAT PSE without pre-smoothing", equating=output)
         return(out)
@@ -3937,7 +3988,7 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
       return(out)
     }
     output<-data.frame(eqYx)
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
       out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Linear NEAT PSE without pre-smoothing", equating=output)
       return(out)
@@ -4087,7 +4138,8 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
 		if(linear == T) bandwidth <- "linear"
 		if(linear == F && DS == F) bandwidth <- "PEN"
 		if(linear == F && DS == T) bandwidth <- "DS"
-		if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		if(linear == F && CV == T) bandwidth <- "CV"
+		if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
 		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
 		hx <- hxhy[1]
 		hy <- hxhy[2]
@@ -4120,14 +4172,14 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
   PRE<-data.frame(PREYx)
   h<-data.frame(hx, hy)
   
-  if(irtx!=0 && irty!=0){
+  if(!identical(irtx, 0) && !identical(irty, 0)){
     irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
   }
   
   if(!linear){
     SEED_NEAT<-SEED(fprimeY, gprimeY, dFdreYEG, dGdseYEG, Ur, Vr, Us, Vs, r, s, meanx, varx, meany, vary, x, y, hxlin, hylin, slog, bunif)
     output<-data.frame(eqYx, SEEYx, SEED_NEAT@SEED)
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEED_NEAT@SEED)
       out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEED_NEAT@SEEvect, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_NEAT@hlin, irtout@h), kernel=kernel, type="NEAT/NEC PSE equipercentile", equating=output)
       return(out)
@@ -4141,7 +4193,7 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
   }
   SEEvectors<-new("SEEvect", SEEYx=matrix(0), SEEYxLIN=SEE_EYlin)
   output<-data.frame(eqYx, SEEYx)
-  if(irtx!=0 && irty!=0){
+  if(!identical(irtx, 0) && !identical(irty, 0)){
     output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT)
     out<-new("keout", Cp=Cp, Cq=Cq, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, Qest=Q, Qobs=Qobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="NEAT/NEC PSE linear", equating=output)
     return(out)
@@ -4150,7 +4202,7 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
   return(out)
 }
 
-kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE, DS = FALSE){
+kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1/4, linear=FALSE, irtx=0, irty=0, smoothed=TRUE, kernel="gaussian", slog=1, bunif=0.5, altopt=FALSE, DS = FALSE, CV = FALSE){
   #stopifnot((is(smoothed, "logical"))
   if(smoothed==FALSE){
     if(kernel=="uniform"){
@@ -4216,12 +4268,12 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
     PRE<-data.frame(PREYx)
     h<-data.frame(hx, hy)
     
-    if(irtx!=0 && irty!=0)
+    if(!identical(irtx, 0) && !identical(irty, 0))
       irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
     
     if(!linear){
       output<-data.frame(eqYx)
-      if(irtx!=0 && irty!=0){
+      if(!identical(irtx, 0) && !identical(irty, 0)){
         output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
         out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Equipercentile SG without pre-smoothing", equating=output)
         return(out)
@@ -4230,7 +4282,7 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
       return(out)
     }
     output<-data.frame(eqYx)
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYxIRT=irtout@equating$SEEYxIRT)
       out<-new("keout", scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, irtout@h), kernel=kernel, type="Linear SG without pre-smoothing", equating=output)
       return(out)
@@ -4302,7 +4354,8 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
 		if(linear == T) bandwidth <- "linear"
 		if(linear == F && DS == F) bandwidth <- "PEN"
 		if(linear == F && DS == T) bandwidth <- "DS"
-		if(linear == F && DS == F && altopt == T) bandwidth <- "altopt"
+		if(linear == F && CV == T) bandwidth <- "CV"
+		if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
 		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
 		hx <- hxhy[1]
 		hy <- hxhy[2]
@@ -4334,13 +4387,13 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
   PRE<-data.frame(PREYx)
   h<-data.frame(hx, hy)
   
-  if(irtx!=0 && irty!=0){
+  if(!identical(irtx, 0) && !identical(irty, 0)){
     irtout<-keirt(irtx, irty, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
   }
   if(!linear){
     SEED_SG<-SEED(fprimeY, gprimeY, dFdreYSG, dGdseYSG, Ur, Vr, Us, Vs, r, s, meanx, varx, meany, vary, x, y, hxlin, hylin, slog, bunif)
     output<-data.frame(eqYx, SEEYx, SEED_SG@SEED)
-    if(irtx!=0 && irty!=0){
+    if(!identical(irtx, 0) && !identical(irty, 0)){
       output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT, SEED_SG@SEED)
       out<-new("keout", Cp=Cp, SEEvect=SEED_SG@SEEvect, Pest=P, Pobs=Pobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(h, SEED_SG@hlin, irtout@h), kernel=kernel, type="SG equipercentile", equating=output)
       return(out)
@@ -4354,7 +4407,7 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
    }
   SEEvectors<-new("SEEvect", SEEYx=matrix(0), SEEYxLIN=SEE_EYlin)
   output<-data.frame(eqYx, SEEYx)
-  if(irtx!=0 && irty!=0){
+  if(!identical(irtx, 0) && !identical(irty, 0)){
     output<-data.frame(eqYx, eqYxIRT=irtout@equating$eqYxIRT, SEEYx, SEEYxIRT=irtout@equating$SEEYxIRT)
     out<-new("keout", Cp=Cp, SEEvect=SEEvectors, Pest=P, Pobs=Pobs, scores=list(X=data.frame(x, r, cdfx, cdfxirt=irtout@scores$X$cdfxirt), Y=data.frame(y, s, cdfy, cdfyirt=irtout@scores$Y$cdfyirt), M=M, N=N), linear=linear, PRE=PRE, h=data.frame(hx, hy, irtout@h), kernel=kernel, type="SG linear", equating=output)
     return(out)
@@ -4488,6 +4541,7 @@ eqcpoly <- function(aP, bP, aQ, bQ, cats, model, eqcoef, qpoints, distribution){
   J <- length(cats)
   sA <- sum(aQ) / sum(aP)
   sB <- do.call(sum, bP) / (sum(cats) - J) - (sA * do.call(sum, bQ)) / (sum(cats) - J)
+  #UPDATE HERE CODE1
 #   if(eqcoef %in% c("Haebara", "Stocking-Lord")){
 #     toopt <- function(pars, aP, bP, aQ, bQ, cats, model, eqcoef, qpoints, distribution){
 #       A <- pars[1]
@@ -4535,6 +4589,7 @@ pdereqcpoly <- function(aP, bP, aQ, bQ, cats, model, eqcoef, qpoints, distributi
 #     return((-solve(ABmat)) %*% derirtpar)
 #   }
   #add mean-mean from polyirt paper
+  #UPDATE HERE CODE1
   if(eqcoef == "mean-mean"){
     JA <- length(cats)
     sumaP <- sum(aP)
@@ -5051,11 +5106,14 @@ pderrspse <- function(irtpars, x, y, a, irtrP, irtrQ, irtsP, irtsQ, qpoints, eqc
 }
 
 PEN<-function(h, r, x, var, mean, wpen, K, kernel, slog, bunif){
-  
+  x <- as.vector(x)
+  h <- as.vector(h)
+  wpen <- as.vector(wpen)
   res<-numeric(length(x))
-  a<-sqrt(var/(var+h^2))
-  al<-sqrt(var/(var+((pi^2*slog^2)/3)*h^2))
-  au<-sqrt(var/(var+((bunif^2)/3)*h^2))
+  mean <- as.vector(mean)
+  a<-as.vector(sqrt(var/(var+h^2)))
+  al<-as.vector(sqrt(var/(var+((pi^2*slog^2)/3)*h^2)))
+  au<-as.vector(sqrt(var/(var+((bunif^2)/3)*h^2)))
   for(i in 1:length(x)){      
     ff<-0
     if(kernel=="gaussian")
