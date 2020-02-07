@@ -62,7 +62,7 @@ The number of category answers for each item on test A. (GPCM and GRM only.)
 }
 
   \item{see}{
-A character vector indicating which standard errors of equating to use. Options are "analytical" and "bootstrap", with default "analytical".
+A character vector indicating which standard errors of equating to use. Options are "analytical" and "bootstrap", with default "analytical". If using the double smoothing bandwidth selection method (DS = TRUE), the bootstrap is not supported.
 }
 
   \item{replications}{

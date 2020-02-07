@@ -376,17 +376,22 @@ bandwidth.select <- function(input, bandwidth, KPEN = 0, kernel = "gaussian", sl
     if(bandwidth == "linear") out[i] <- 1000 * sqrt(varx)
     if(bandwidth == "altopt") out[i] <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
     if(bandwidth == "PEN"){
-      if(KPEN==0){out[i] <- optimize(PEN, interval=c(0, 10), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum}
+		if(kernel=="uniform"){
+			ulimit<-(1/(2*bunif*(1-0.61803)))
+			KPEN<-0
+		} else ulimit <- 10
+	
+      if(KPEN==0){out[i] <- optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum}
       else{
-        hPEN1min <- optimize(PEN, interval=c(0, 10), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        out[i] <- optimize(PEN, interval=c(hPEN1min, 10), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hPEN1min <- optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        out[i] <- optimize(PEN, interval=c(hPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
       }
     }
     if(bandwidth == "DS"){
-      out[i] <- optimize(DS, interval=c(0, 4), tol = .Machine$double.eps^0.5, r = rP, x, var=varx, mean=meanx, g=4, Sigmar = input[[i]][[4]])$minimum
+      out[i] <- optimize(DS, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r = rP, x, var=varx, mean=meanx, g=4, Sigmar = input[[i]][[4]])$minimum
     }
 	if(bandwidth == "CV"){
-      out[i] <- optimize(CV, interval=c(0, 4), tol = .Machine$double.eps^0.5, r = rP, x, var=varx, mean=meanx)$minimum
+      out[i] <- optimize(CV, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r = rP, x, var=varx, mean=meanx)$minimum
     }
   }
   return(out)
@@ -826,7 +831,7 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
   if(model == "2pl"){
     nX <- length(x) - 1
     nA <- length(a) - 1
-    if("ltm" %in% class(P)){
+    if(inherits(P, "ltm")){
       bx <- as.numeric(coef.ltm(P)[,1])[1:nX]
       baP <- as.numeric(coef.ltm(P)[,1])[(nX + 1):(nX + nA)]
       ax <- as.numeric(coef.ltm(P)[,2])[1:nX]
@@ -844,7 +849,8 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
       ltmP <- P
       P <- ltmP$X
       if(SE) covP <- vcov.ltm(ltmP, robust = robust)
-    } else if(class(P) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+    #} else if(class(P) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+	} else if(inherits(P, c("SingleGroupClass", "ConfirmatoryClass"))){
       myspP <- extract.mirt(P, "parvec")
       b <- myspP[seq(2, 2 * (nX + nA), by = 2)]
       a <- myspP[seq(1, 2 * (nX + nA), by = 2)]
@@ -911,7 +917,7 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
   if(model=="3pl"){
     nX <- length(x) - 1
     nA <- length(a) - 1
-    if("tpm" %in% class(P)){
+    if(inherits(P, "tpm")){
       cx <- as.numeric(coef.tpm(P)[,1])[1:(length(x)-1)]
       caP <- as.numeric(coef.tpm(P)[,1])[(length(x)):((length(x)+length(a)-2))]
       bx <- as.numeric(coef.tpm(P)[,2])[1:(length(x)-1)]
@@ -931,7 +937,7 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
       ltmP <- P
       P <- ltmP$X
       if(SE) covP <- vcov.tpm(ltmP)
-    } else if(class(P) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+    } else if(inherits(P, c("SingleGroupClass", "ConfirmatoryClass"))){
       myspP <- extract.mirt(P, "parvec")
       a <- myspP[seq(1, 3 * (nX + nA), by = 3)]
       b <- myspP[seq(2, 3 * (nX + nA), by = 3)]
@@ -972,7 +978,7 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
     aaP <- numeric(JA)
     baP <- vector("list", JA)
     
-    if(class(P) == "SingleGroupClass"){
+    if(inherits(P, "SingleGroupClass")){
       for(i in 1:JX){
         ttpar <- extract.item(P, i)
         ax[i] <- ttpar@par[1]
@@ -1001,7 +1007,7 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
     aaP <- numeric(JA)
     baP <- vector("list", JA)
     
-    if(class(P) == "SingleGroupClass"){
+    if(inherits(P, "SingleGroupClass")){
       for(i in 1:JX){
         ttpar <- extract.item(P, i)
         ax[i] <- ttpar@par[1]
@@ -1036,13 +1042,13 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
   #see kequate() for rest args
   if(design=="CE"){
     if(model=="2pl"){
-      if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
+      if(inherits(P, c("ConfirmatoryClass", "SingleGroupClass", "ltm"))) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
       #if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Plist <- irtinput(P, x, a, robust, model) else if(is.matrix(P)){
         if((length(a)+length(x)-2) != ncol(P)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
         ltmP <- ltm(P ~ z1, IRT.param=FALSE)
         Plist <- irtinput(ltmP, x, a, robust, model)
       }
-      if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
+      if(inherits(Q, c("ConfirmatoryClass", "SingleGroupClass", "ltm"))) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
       #if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Qlist <- irtinput(Q, y, a, robust, model) else if(is.matrix(P)){
         if((length(a)+length(x)-2) != ncol(Q)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
         ltmQ <- ltm(Q ~ z1, IRT.param=FALSE)
@@ -1074,13 +1080,13 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     
     
     if(model=="3pl"){
-      if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
+      if(inherits(P, c("ConfirmatoryClass", "SingleGroupClass", "tpm"))) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
       #if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Plist <- irtinput(P, x, a, robust, model) else if(is.matrix(P)){
         if((length(a)+length(x)-2) != ncol(P)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
         ltmP <- tpm(P, IRT.param=FALSE)
         Plist <- irtinput(ltmP, x, a, robust, model)
       }
-      if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
+      if(inherits(Q, c("ConfirmatoryClass", "SingleGroupClass", "tpm"))) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
       #if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Qlist <- irtinput(Q, y,  a, robust, model) else if(is.matrix(P)){
         if((length(a)+length(x)-2) != ncol(Q)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
         ltmQ <- tpm(Q, IRT.param=FALSE)
@@ -1096,7 +1102,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       cx <- Plist$cx
       caP <- Plist$caP
       ltmP <- Plist$ltmP
-      if(class(ltmP) %in% c("ConfirmatoryClass", "SingleGroupClass")){
+      if(inherits(ltmP, c("ConfirmatoryClass", "SingleGroupClass"))){
         cxltm <- cx
         caPltm <- caP
         cx <- exp(cx) / (1 + exp(cx))
@@ -1115,7 +1121,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       cy <- Qlist$cx
       caQ <-  Qlist$caP
       ltmQ <- Qlist$ltmP
-      if(class(ltmQ) %in% c("ConfirmatoryClass", "SingleGroupClass")){
+      if(inherits(ltmQ, c("ConfirmatoryClass", "SingleGroupClass"))){
         cyltm <- cy
         caQltm <- caQ
         cy <- exp(cy) / (1 + exp(cy))
@@ -1147,7 +1153,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       baP <- vector("list", JA) 
       baQ <- vector("list", JA)
       
-      if(class(gpcmP) == "gpcm" && class(gpcmQ) == "gpcm"){
+      if(inherits(gpcmP, "gpcm") && inherits(gpcmQ, "gpcm")){
         if(!P$IRT.param || !Q$IRT.param) return("Please fit the IRT models using IRT.param = TRUE.")
       if(length(unique(c(catsX, catsA)))==1){
         ax <- coef(gpcmP)[1:JX, catsX[1]]
@@ -1178,7 +1184,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       Q <- gpcmQ$X
 
       }
-      if(class(gpcmP) == "SingleGroupClass" && class(gpcmQ) == "SingleGroupClass"){
+      if(inherits(gpcmP, "SingleGroupClass") && inherits(gpcmQ, "SingleGroupClass")){
         parsP <- irtinput(gpcmP, x, a, robust, model, catsX = catsX, catsA = catsA)
         parsQ <- irtinput(gpcmQ, y, a, robust, model, catsX = catsY, catsA = catsA)
         ax <- parsP$ax
@@ -1279,11 +1285,34 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     varaP <- (N/(N-1))*(a^2%*%tP-meanaP^2)
     varaQ <- (M/(M-1))*(a^2%*%tQ-meanaQ^2)
     
-    hxPlin<-as.numeric(1000*sqrt(varx))
-    hyQlin<-as.numeric(1000*sqrt(vary))
-    haPlin<-as.numeric(1000*sqrt(varaP))
-    haQlin<-as.numeric(1000*sqrt(varaQ))
-
+    hxPlin <- as.numeric(1000*sqrt(varx))
+    hyQlin <- as.numeric(1000*sqrt(vary))
+    haPlin <- as.numeric(1000*sqrt(varaP))
+    haQlin <- as.numeric(1000*sqrt(varaQ))
+	
+	input <- vector("list", 4)
+    input[[1]] <- list(rP, x, N)
+    input[[2]] <- list(tP, a, N)
+    input[[3]] <- list(sQ, y, M)
+    input[[4]] <- list(tQ, a, M)
+	
+	if(h$hxP == 0 && h$haP == 0 && h$hyQ == 0 && h$haQ == 0){
+		if(linear == TRUE) bandwidth <- "linear"
+		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
+		hxP <- hxhy[1]
+		haP <- hxhy[2]
+		hyQ <- hxhy[3]
+		haQ <- hxhy[4]
+	} else{
+		hxP <- h$hxP
+		haP <- h$haP
+		hyQ <- h$hyQ
+		haQ <- h$haP
+	}
     if(see=="bootstrap"){
       if(model=="2pl"){
         bootsee <- matrix(0, nrow=replications, ncol=length(x))
@@ -1292,7 +1321,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
           Qboot <- Q[sample(1:M, replace=TRUE),]
           ltmQboot <- ltm(Pboot ~ z1, IRT.param=FALSE)
           ltmPboot <- ltm(Qboot ~ z1, IRT.param=FALSE)
-          bootsee[i,] <- irtoseeq(ltmPboot, ltmQboot, x, y, a, qpoints, N, M, model, design, kernel, slog, bunif, KPEN, wpen, linear, altopt, h=h, hlin=hlin)
+          bootsee[i,] <- irtoseeq(ltmPboot, ltmQboot, x, y, a, qpoints, N, M, model, design, kernel, slog, bunif, KPEN, wpen, linear, altopt, h=h, hlin=hlin, DS = DS, CV = CV)
         }
       }
       if(model=="3pl"){
@@ -1302,7 +1331,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
           Qboot <- Q[sample(1:M, replace=TRUE),]
           ltmQboot <- tpm(Pboot, IRT.param=FALSE, control=list(optimizer="nlminb"))
           ltmPboot <- tpm(Qboot, IRT.param=FALSE, control=list(optimizer="nlminb"))
-          bootsee[i,] <- irtoseeq(ltmPboot, ltmQboot, x, y, a, qpoints, N, M, model, design, kernel, slog, bunif, KPEN, wpen, linear, altopt, h=h, hlin=hlin)
+          bootsee[i,] <- irtoseeq(ltmPboot, ltmQboot, x, y, a, qpoints, N, M, model, design, kernel, slog, bunif, KPEN, wpen, linear, altopt, h=h, hlin=hlin, DS = DS, CV = CV)
         }
       }
       
@@ -1345,7 +1374,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
         adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, aa=aaP, bxltm=bxltm, baltm=baPltm), design, model="3pl")
         adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, aa=aaQ, bxltm=byltm, baltm=baQltm), design, model="3pl")
         
-        if(class(ltmP) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+        if(inherits(ltmP, c("SingleGroupClass", "ConfirmatoryClass"))){
           vectadj <- rep(1, 3 * (length(a) + length(x)-2))
           vectadj[1:(length(a) + length(x)-2)] <- exp(c(cxltm, caPltm)) / (1 + exp(c(cxltm, caPltm)))^2
           adjcovalphaP <- diag(vectadj) %*% adjcovalphaP %*% t(diag(vectadj))
@@ -1399,13 +1428,13 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
           }
         }
         if(model== "GPCM"){
-          if(class(ltmP) == "gpcm" && class(ltmQ) == "gpcm"){
+          if(inherits(ltmP, "gpcm") && inherits(ltmQ,"gpcm")){
             covalphaP <- vcov.gpcm(ltmP, robust=robust)
             covalphaQ <- vcov.gpcm(ltmQ, robust=robust)
             adjcovalphaP <- covalphaP
             adjcovalphaQ <- covalphaQ
           }
-          if(class(ltmP) == "SingleGroupClass" && class(ltmQ) == "SingleGroupClass"){
+          if(inherits(ltmP, "SingleGroupClass") && inherits(ltmQ, "SingleGroupClass")){
             covalphaP <- extract.mirt(ltmP, "vcov")
             covalphaQ <- extract.mirt(ltmQ, "vcov")            
             adjderP <- adjgpcmmirt(ltmP)
@@ -1484,13 +1513,13 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       input[[4]] <- list(tQ, a, M, covtQ)
       
 	  if(h$hxP == 0 && h$haP == 0 && h$hyQ == 0 && h$haQ == 0){
-		  if(linear == T) bandwidth <- "linear"
-		  if(linear == F && DS == F) bandwidth <- "PEN"
-		  if(linear == F && DS == T) bandwidth <- "DS"
-		  if(linear == F && CV == T) bandwidth <- "CV"
-		  if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
+		if(linear == TRUE) bandwidth <- "linear"
+		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
 			  
-		  hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		  hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
 		  hxP <- hxhy[1]
 		  haP <- hxhy[2]
 		  hyQ <- hxhy[3]
@@ -1621,7 +1650,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     if(model=="2pl"){
       nX <- length(x) - 1
       nY <- length(y) - 1
-      if("ltm" %in% class(P)){
+      if(inherits(P, "ltm")){
         bx <- as.numeric(coef.ltm(P)[,1])[1:(length(x)-1)]
         ax <- as.numeric(coef.ltm(P)[,2])[1:(length(x)-1)]
         if(P$IRT.param){
@@ -1635,7 +1664,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
         P <- ltmP$X
         covalphaP <- vcov.ltm(ltmP, robust=robust)
       } else{
-        if(class(P) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+        if(inherits(P, c("SingleGroupClass", "ConfirmatoryClass"))){
           myspP <- extract.mirt(P, "parvec")
           bx <- myspP[seq(2, 2 * nX, by = 2)]
           ax <- myspP[seq(1, 2 * nX, by = 2)]
@@ -1669,7 +1698,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
           }
         }
       }
-      if("ltm" %in% class(Q)){
+      if(inherits(Q, "ltm")){
         by <- as.numeric(coef.ltm(Q)[,1])[1:(length(y)-1)]
         ay <- as.numeric(coef.ltm(Q)[,2])[1:(length(y)-1)]
         if(Q$IRT.param){
@@ -1681,8 +1710,9 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
         M <- dim(Q$X)[1]
         ltmQ <- Q
         Q <- ltmQ$X
+		covalphaQ <- vcov.ltm(ltmQ, robust=robust)
       } else{
-        if(class(Q) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+        if(inherits(Q, c("SingleGroupClass", "ConfirmatoryClass"))){
           myspQ <- extract.mirt(Q, "parvec")
           by <- myspQ[seq(2, 2 * nY, by = 2)]
           ay <- myspQ[seq(1, 2 * nY, by = 2)]
@@ -1710,7 +1740,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     if(model=="3pl"){
       nX <- length(x) - 1
       nY <- length(y) - 1
-      if("tpm" %in% class(P)){
+      if(inherits(P, "tpm")){
         cx <- as.numeric(coef.tpm(P)[,1])[1:(length(x)-1)]
         bx <- as.numeric(coef.tpm(P)[,2])[1:(length(x)-1)]
         ax <- as.numeric(coef.tpm(P)[,3])[1:(length(x)-1)]
@@ -1725,7 +1755,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
         P <- ltmP$X
         covalphaP <- vcov.ltm(ltmP, robust=robust)
       } else{
-        if(class(P) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+        if(inherits(P, c("SingleGroupClass", "ConfirmatoryClass"))){
           myspP <- extract.mirt(P, "parvec")
           ax <- myspP[seq(1, 3 * nX, by = 3)]
           bx <- myspP[seq(2, 3 * nX, by = 3)]
@@ -1763,7 +1793,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
           }
         }
       }
-      if("tpm" %in% class(Q)){
+      if(inherits(Q, "tpm")){
         cy <- as.numeric(coef.tpm(Q)[,1])[1:(length(y)-1)]
         by <- as.numeric(coef.tpm(Q)[,2])[1:(length(y)-1)]
         ay <- as.numeric(coef.tpm(Q)[,3])[1:(length(y)-1)]
@@ -1778,7 +1808,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
         Q <- ltmP$X
         covalphaQ <- vcov.ltm(ltmQ, robust=robust)
       } else{
-        if(class(Q) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+        if(inherits(Q, c("SingleGroupClass", "ConfirmatoryClass"))){
           myspQ <- extract.mirt(Q, "parvec")
           ay <- myspQ[seq(1, 3 * nY, by = 3)]
           by <- myspQ[seq(2, 3 * nY, by = 3)]
@@ -1833,7 +1863,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       ay <- numeric(JY)
       bx <- vector("list", JX)
       by <- vector("list", JY)
-      if(class(gpcmP) == "gpcm" && class(gpcmQ) == "gpcm"){
+      if(inherits(gpcmP, "gpcm") && inherits(gpcmQ, "gpcm")){
         if(!P$IRT.param || !Q$IRT.param) return("Please fit the IRT models using IRT.param = TRUE.")
         if(length(unique(catsX))==1){
           ax <- coef(gpcmP)[, catsX[1]]
@@ -1854,7 +1884,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
         P <- gpcmP$X
         Q <- gpcmQ$X
       }
-      if(class(gpcmP) == "SingleGroupClass" && class(gpcmQ) == "SingleGroupClass"){
+      if(inherits(gpcmP, "SingleGroupClass") && inherits(gpcmQ, "SingleGroupClass")){
         for(i in 1:JX){
           ttpar <- extract.item(gpcmP, i)
           ax[i] <- ttpar@par[1]
@@ -1924,7 +1954,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
           Qboot <- Q[sample(1:M, replace=TRUE),]
           ltmQboot <- ltm(Pboot ~ z1, IRT.param=FALSE)
           ltmPboot <- ltm(Qboot ~ z1, IRT.param=FALSE)
-          bootsee[i,] <- irtoseeq(ltmPboot, ltmQboot, x, y, a, qpoints, N, M, model, design, kernel, slog, bunif, KPEN, wpen, linear, altopt, h=h, hlin=hlin)
+          bootsee[i,] <- irtoseeq(ltmPboot, ltmQboot, x, y, a, qpoints, N, M, model, design, kernel, slog, bunif, KPEN, wpen, linear, altopt, h=h, hlin=hlin, DS = DS, CV = CV)
         }
       }
       if(model=="3pl"){
@@ -1934,7 +1964,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
           Qboot <- Q[sample(1:M, replace=TRUE),]
           ltmQboot <- tpm(Pboot, IRT.param=FALSE, control=list(optimizer="nlminb"))
           ltmPboot <- tpm(Qboot, IRT.param=FALSE, control=list(optimizer="nlminb"))
-          bootsee[i,] <- irtoseeq(ltmPboot, ltmQboot, x, y, a, qpoints, N, M, model, design, kernel, slog, bunif, KPEN, wpen, linear, altopt, h=h, hlin=hlin)
+          bootsee[i,] <- irtoseeq(ltmPboot, ltmQboot, x, y, a, qpoints, N, M, model, design, kernel, slog, bunif, KPEN, wpen, linear, altopt, h=h, hlin=hlin, DS = DS, CV = CV)
         }
       }
       r <- LordWW(irtx, qpoints)
@@ -1942,49 +1972,66 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       if(kernel=="uniform"){
         ulimit<-(1/(2*bunif*(1-0.61803)))
         KPEN<-0
-      } else ulimit<-4
+      } else ulimit <- 10
       
       meanx <- x%*%r
       meany <- y%*%s
       
       varx <- (N/(N-1))*(x^2%*%r-meanx^2)
       vary <- (M/(M-1))*(y^2%*%s-meany^2)
-      
-      if(linear){
-        if(hlin$hxlin==0)
-          hx<-as.numeric(1000*sqrt(varx))
-        else
-          hx<-hlin$hxlin
-        if(hlin$hylin==0)
-          hy<-as.numeric(1000*sqrt(vary))
-        else
-          hy<-hlin$hylin
-      } else{
-        if(h$hx==0){
-          if(altopt){
-            hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
-          } else{
-            if(KPEN==0){
-              hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            } else{
-              hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-              hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            }
-          }
-        }
-        if(h$hy==0){
-          if(altopt){
-            hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
-          } else{
-            if(KPEN==0){
-              hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            } else{
-              hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-              hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            }
-          }
-        }
-      }
+	  
+	input <- vector("list", 2)
+    input[[1]] <- list(r, x, N)
+    input[[2]] <- list(s, y, M)
+	  
+	if(h$hx == 0 && h$hy == 0){
+		if(linear == TRUE) bandwidth <- "linear"
+		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
+		hx <- hxhy[1]
+		hy <- hxhy[2]
+	} else{
+		hx <- h$hx
+		hy <- h$hy
+	} 
+	# if(linear){
+        # if(hlin$hxlin==0)
+          # hx<-as.numeric(1000*sqrt(varx))
+        # else
+          # hx<-hlin$hxlin
+        # if(hlin$hylin==0)
+          # hy<-as.numeric(1000*sqrt(vary))
+        # else
+          # hy<-hlin$hylin
+      # } else{
+        # if(h$hx==0){
+          # if(altopt){
+            # hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+          # } else{
+            # if(KPEN==0){
+              # hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            # } else{
+              # hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+              # hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            # }
+          # }
+        # }
+        # if(h$hy==0){
+          # if(altopt){
+            # hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+          # } else{
+            # if(KPEN==0){
+              # hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            # } else{
+              # hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+              # hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            # }
+          # }
+        # }
+      # }
       
       cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)       						#Continuize the estimated cdf:s for X and Y.
       cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
@@ -2014,7 +2061,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
          adjcovalphaP <- adjltm(covalphaP, pars=list(ax=ax, bxltm=bxltm), design, model="3pl")
          adjcovalphaQ <- adjltm(covalphaQ, pars=list(ax=ay, bxltm=byltm), design, model="3pl")
          
-         if(class(ltmP) %in% c("SingleGroupClass", "ConfirmatoryClass")){
+         if(inherits(ltmP, c("SingleGroupClass", "ConfirmatoryClass"))){
            vectadj <- rep(1, 3 * (length(x)-1))
            vectadj[1:(length(x)-1)] <- exp(c(cxltm)) / (1 + exp(c(cxltm)))^2
            adjcovalphaP <- diag(vectadj) %*% adjcovalphaP %*% t(diag(vectadj))
@@ -2043,13 +2090,13 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
              pdermatY[i, (sum(catsY[1:(j - 1)]) + 1):sum(catsY[1:j])] <- pderY[[i]][[j]]
            }
          }
-         if(class(ltmP) == "gpcm" && class(ltmQ) == "gpcm"){
+         if(inherits(ltmP, "gpcm") && inherits(ltmQ, "gpcm")){
            covalphaP <- vcov.gpcm(ltmP, robust=robust)
            covalphaQ <- vcov.gpcm(ltmQ, robust=robust)
            adjcovalphaP <- covalphaP
            adjcovalphaQ <- covalphaQ
          }
-         if(class(ltmP) == "SingleGroupClass" && class(ltmQ) == "SingleGroupClass"){
+         if(inherits(ltmP, "SingleGroupClass") && inherits(ltmQ, "SingleGroupClass")){
            covalphaP <- extract.mirt(ltmP, "vcov")
            covalphaQ <- extract.mirt(ltmQ, "vcov")
            adjderP <- adjgpcmmirt(ltmP)
@@ -2099,7 +2146,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     if(kernel=="uniform"){
       ulimit<-(1/(2*bunif*(1-0.61803)))
       KPEN<-0
-    } else ulimit<-4
+    } else ulimit<-10
     
     meanx <- x%*%r
     meany <- y%*%s
@@ -2135,15 +2182,15 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
        
        input <- vector("list", 2)
        input[[1]] <- list(r, x, N, covr)
-       input[[2]] <- list(s, y, N, covs)
+       input[[2]] <- list(s, y, M, covs)
        
 	   if(h$hx == 0 && h$hy == 0){
-			if(linear == T) bandwidth <- "linear"
-			if(linear == F && DS == F) bandwidth <- "PEN"
-			if(linear == F && DS == T) bandwidth <- "DS"
-			if(linear == F && CV == T) bandwidth <- "CV"
-			if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
-			hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+			if(linear == TRUE) bandwidth <- "linear"
+			if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+			if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+			if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+			if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+			hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
 			hx <- hxhy[1]
 			hy <- hxhy[2]
 	   } else{
@@ -2190,12 +2237,12 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
   }
   if(design=="PSE"){
     if(model=="2pl"){
-      if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
+      if(inherits(P, c("ConfirmatoryClass", "SingleGroupClass", "ltm"))) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
         if((length(a)+length(x)-2) != ncol(P)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
         ltmP <- ltm(P ~ z1, IRT.param=FALSE)
         Plist <- irtinput(ltmP, x, a, robust, model)
       }
-      if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "ltm")) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
+      if(inherits(Q, c("ConfirmatoryClass", "SingleGroupClass", "ltm"))) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
         if((length(a)+length(x)-2) != ncol(Q)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
         ltmQ <- ltm(Q ~ z1, IRT.param=FALSE)
         Qlist <- irtinput(ltmQ, x, a, robust, model)
@@ -2224,12 +2271,12 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       covalphaQ <- Qlist$covP
     }
     if(model=="3pl"){
-      if(class(P) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
+      if(inherits(P, c("ConfirmatoryClass", "SingleGroupClass", "tpm"))) Plist <- irtinput(P, x, a, robust, model, catsX = catsX, catsA = catsA) else if(is.matrix(P)){
         if((length(a)+length(x)-2) != ncol(P)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
         ltmP <- tpm(P, IRT.param=FALSE)
         Plist <- irtinput(ltmP, x, a, robust, model)
       }
-      if(class(Q) %in% c("ConfirmatoryClass", "SingleGroupClass", "tpm")) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
+      if(inherits(Q, c("ConfirmatoryClass", "SingleGroupClass", "tpm"))) Qlist <- irtinput(Q, y, a, robust, model, catsX = catsY, catsA = catsA) else if(is.matrix(Q)){
         if((length(a)+length(x)-2) != ncol(Q)) return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
         ltmQ <- tpm(Q, IRT.param=FALSE)
         Qlist <- irtinput(ltmQ, x, a, robust, model)
@@ -2244,7 +2291,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       cx <- Plist$cx
       caP <- Plist$caP
       ltmP <- Plist$ltmP
-      if(class(ltmP) %in% c("ConfirmatoryClass", "SingleGroupClass")){
+      if(inherits(ltmP, c("ConfirmatoryClass", "SingleGroupClass"))){
         cxmirt <- cx
         caPmirt <- caP
         cx <- exp(cx) / (1 + exp(cx))
@@ -2263,7 +2310,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
       cy <- Qlist$cx
       caQ <-  Qlist$caP
       ltmQ <- Qlist$ltmP
-      if(class(ltmP) %in% c("ConfirmatoryClass", "SingleGroupClass")){
+      if(inherits(ltmP, c("ConfirmatoryClass", "SingleGroupClass"))){
         cymirt <- cy
         caQmirt <- caQ
         cy <- exp(cy) / (1 + exp(cy))
@@ -2363,7 +2410,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     }
     if(model=="3pl"){
       #cov-mat from tpm() is for regular c
-      if(class(ltmP) == "tpm"){
+      if(inherits(ltmP, "tpm")){
         ltmPcf <- matrix(c(cx, caP, bxltm, baPltm, ax, aaP), nrow = length(c(ax, aaP)))
         ltmQcf <- matrix(c(cy, caQ, byltm, baQltm, ay, aaQ), nrow = length(c(ay, aaQ)))
         dimnames(ltmPcf)[[1]] <- c(sprintf("X%03d", 1:(length(x)-1)), sprintf("A%03d", 1:(length(a)-1)))
@@ -2371,7 +2418,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
         avoidprint <- capture.output({modPQ <- modIRT(coef=list(test1=ltmPcf, test2=ltmQcf), var=list(test1=covalphaP, test2=covalphaQ), names=paste("test", 1:2, sep=""), ltparam=TRUE, lparam=FALSE)})
       }
       #cov-mat from mirt() is for cmirt such that c=exp(cmirt)/(1+exp(cmirt))
-      if(class(ltmP) %in% c("ConfirmatoryClass", "SingleGroupClass")){
+      if(inherits(ltmP, c("ConfirmatoryClass", "SingleGroupClass"))){
         mirtPcf <- matrix(c(cxmirt, caPmirt, bxltm, baPltm, ax, aaP), nrow = length(c(ax, aaP)))
         mirtQcf <- matrix(c(cymirt, caQmirt, byltm, baQltm, ay, aaQ), nrow = length(c(ay, aaQ)))
         dimnames(mirtPcf)[[1]] <- c(sprintf("X%03d", 1:(length(x)-1)), sprintf("A%03d", 1:(length(a)-1)))
@@ -2446,7 +2493,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     if(kernel=="uniform"){
       ulimit<-(1/(2*bunif*(1-0.61803)))
       KPEN<-0
-    } else ulimit<-4
+    } else ulimit<-10
     
     meanx <- x%*%r
     meany <- y%*%s
@@ -2508,12 +2555,12 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     
     
     if(h$hx == 0 && h$hy == 0){
-		if(linear == T) bandwidth <- "linear"
-		if(linear == F && DS == F) bandwidth <- "PEN"
-		if(linear == F && DS == T) bandwidth <- "DS"
-		if(linear == F && CV == T) bandwidth <- "CV"
-		if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
-		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		if(linear == TRUE) bandwidth <- "linear"
+		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
 		hx <- hxhy[1]
 		hy <- hxhy[2]
 	} else{
@@ -2559,7 +2606,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
   } else return("Currently only CE, PSE and EG have been implemented.")
 }
 
-irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", kernel="gaussian", slog=1, bunif=1, KPEN=0, wpen=0.5, linear=FALSE, altopt=FALSE, h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0)){
+irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", kernel="gaussian", slog=1, bunif=1, KPEN=0, wpen=0.5, linear=FALSE, altopt=FALSE, DS = FALSE, CV = FALSE, h=list(hx=0, hy=0, hxP=0, haP=0, hyQ=0, haQ=0), hlin=list(hxlin=0, hylin=0, hxPlin=0, haPlin=0, hyQlin=0, haQlin=0)){
   
   
   #P - object from ltm with IRT model for group P, where the first items are main test, the last are the anchor test OR a matrix of responses w/out missing values, rows are individuals, columns are items, the main test first, then the anchor test
@@ -2572,7 +2619,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
   #see kequate() for rest args
   
   if(design=="CE"){
-  if("ltm" %in% class(P)){
+  if(inherits(P, "ltm")){
     bx <- as.numeric(coef.ltm(P)[,1])[1:(length(x)-1)]
     baP <- as.numeric(coef.ltm(P)[,1])[(length(x)):((length(x)+length(a)-2))]
     ax <- as.numeric(coef.ltm(P)[,2])[1:(length(x)-1)]
@@ -2590,7 +2637,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
     P <- ltmP$X
   } 
   
-  if("ltm" %in% class(Q)){
+  if(inherits(Q, "ltm")){
     by <- as.numeric(coef.ltm(Q)[,1])[1:(length(y)-1)]
     baQ <-  as.numeric(coef.ltm(Q)[,1])[(length(y)):((length(y)+length(a)-2))]
     ay <- as.numeric(coef.ltm(Q)[,2])[1:(length(y)-1)]
@@ -2608,7 +2655,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
     Q <- ltmQ$X
   }
   
-  if("tpm" %in% class(P)){
+  if(inherits(P, "tpm")){
     cx <- as.numeric(coef.tpm(P)[,1])[1:(length(x)-1)]
     caP <- as.numeric(coef.tpm(P)[,1])[(length(x)):((length(x)+length(a)-2))]
     bx <- as.numeric(coef.tpm(P)[,2])[1:(length(x)-1)]
@@ -2629,7 +2676,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
     P <- ltmP$X
   }
   
-  if("tpm" %in% class(Q)){
+  if(inherits(Q, "tpm")){
     cy <- as.numeric(coef.tpm(Q)[,1])[1:(length(y)-1)]
     caQ <- as.numeric(coef.tpm(Q)[,1])[(length(y)):((length(y)+length(a)-2))]
     by <- as.numeric(coef.tpm(Q)[,2])[1:(length(y)-1)]
@@ -2690,9 +2737,9 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
   
   
   if(kernel=="uniform"){
-    ulimit<-(1/(2*bunif*(1-0.61803)))
-    KPEN<-0
-  } else ulimit<-4
+    ulimit <- (1 / (2 * bunif * (1 - 0.61803)))
+    KPEN <- 0
+  } else ulimit <- 10
   
   meanx <- x%*%rP
   meany <- y%*%sQ
@@ -2702,70 +2749,74 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
   vary <- (M/(M-1))*(y^2%*%sQ-meany^2)
   varaP <- (N/(N-1))*(a^2%*%tP-meanaP^2)
   varaQ <- (M/(M-1))*(a^2%*%tQ-meanaQ^2)
-  if(linear){
-    if(hlin$hxPlin==0)
-      hxP<-as.numeric(1000*sqrt(varx))
-    else
-      hxP<-hlin$hxPlin
-    if(hlin$hyQlin==0)
-      hyQ<-as.numeric(1000*sqrt(vary))
-    else
-      hyQ<-hlin$hyQlin
-    if(hlin$haPlin==0)
-      haP<-as.numeric(1000*sqrt(varaP))
-    else
-      haP<-hlin$haPlin
-    if(hlin$haQlin==0)
-      haQ<-as.numeric(1000*sqrt(varaQ))
-    else
-      haQ<-hlin$haQlin
-  }
-  else{
-    if(h$hxP==0)
-      if(altopt)
-        hxP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
-    else{
-      if(KPEN==0)
-        hxP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      }
-    }
-    if(h$hyQ==0)
-      if(altopt)
-        hyQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
-    else{
-      if(KPEN==0)
-        hyQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      }
-    }
-    if(h$haP==0)
-      if(altopt)
-        haP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varaP)
-    else{
-      if(KPEN==0)
-        haP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        haPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      }
-    }
-    if(h$haQ==0)
-      if(altopt)
-        haQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(varaQ)
-    else{
-      if(KPEN==0)
-        haQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      else{
-        haQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-      }
-    }
-  }
+  #Fixed code?
+  
+  	input <- vector("list", 4)
+    input[[1]] <- list(rP, x, N)
+    input[[2]] <- list(tP, a, N)
+    input[[3]] <- list(sQ, y, M)
+    input[[4]] <- list(tQ, a, M)
+  
+	if(h$hxP == 0 && h$haP == 0 && h$hyQ == 0 && h$haQ == 0){
+		if(linear == TRUE) bandwidth <- "linear"
+		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
+		hxP <- hxhy[1]
+		haP <- hxhy[2]
+		hyQ <- hxhy[3]
+		haQ <- hxhy[4]
+	} else{
+		hxP <- h$hxP
+		haP <- h$haP
+		hyQ <- h$hyQ
+		haQ <- h$haP
+	}
+  # if(linear){
+    # if(hlin$hxPlin==0) hxP <- as.numeric(1000*sqrt(varx)) else hxP<-hlin$hxPlin
+    # if(hlin$hyQlin==0) hyQ <- as.numeric(1000*sqrt(vary)) else hyQ<-hlin$hyQlin
+    # if(hlin$haPlin==0) haP <- as.numeric(1000*sqrt(varaP)) else haP <- hlin$haPlin
+    # if(hlin$haQlin==0) haQ <- as.numeric(1000*sqrt(varaQ)) else haQ <- hlin$haQlin
+  # } else{
+    # if(h$hxP==0){
+      # if(KPEN==0){
+        # hxP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+		# } else{
+        # hxPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        # hxP<-optimize(PEN, interval=c(hxPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      # }
+	  # if(altopt) hxP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+    # }
+    # if(h$hyQ==0){
+      # if(KPEN==0){
+        # hyQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+		# } else{
+        # hyQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        # hyQ<-optimize(PEN, interval=c(hyQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=sQ, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      # }
+	  # if(altopt) hyQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+    # }
+    # if(h$haP==0){
+      # if(KPEN==0){
+        # haP<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+		# } else{
+        # haPPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        # haP<-optimize(PEN, interval=c(haPPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tP, a, var=varaP, mean=meanaP, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      # }
+	  # if(altopt) haP <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varaP)
+    # }
+    # if(h$haQ==0){
+      # if(KPEN==0){
+        # haQ<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+		# } else{
+        # haQPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        # haQ<-optimize(PEN, interval=c(haQPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=tQ, a, var=varaQ, mean=meanaQ, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+      # }
+	  # if(altopt) haQ <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(varaQ)
+    # }
+  # }
   
   cdfxP <- cdf(rP, hxP, meanx, varx, kernel, slog, bunif)
   cdfyQ <- cdf(sQ, hyQ, meany, vary, kernel, slog, bunif)
@@ -2784,7 +2835,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
   }
   if(design=="EG"){
     if(model=="2pl"){
-      if("ltm" %in% class(P)){
+      if(inherits(P, "ltm")){
         bx <- as.numeric(coef.ltm(P)[,1])[1:(length(x)-1)]
         ax <- as.numeric(coef.ltm(P)[,2])[1:(length(x)-1)]
         if(P$IRT.param){
@@ -2811,7 +2862,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
         }
       }
       
-      if("ltm" %in% class(Q)){
+      if(inherits(Q, "ltm")){
         by <- as.numeric(coef.ltm(Q)[,1])[1:(length(y)-1)]
         ay <- as.numeric(coef.ltm(Q)[,2])[1:(length(y)-1)]
         if(Q$IRT.param){
@@ -2844,7 +2895,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
     }
     
     if(model=="3pl"){
-      if("tpm" %in% class(P)){
+      if(inherits(P, "tpm")){
         cx <- as.numeric(coef.tpm(P)[,1])[1:(length(x)-1)]
         bx <- as.numeric(coef.tpm(P)[,2])[1:(length(x)-1)]
         ax <- as.numeric(coef.tpm(P)[,3])[1:(length(x)-1)]
@@ -2873,7 +2924,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
         }
       }
       
-      if("tpm" %in% class(Q)){
+      if(inherits(Q, "tpm")){
         cy <- as.numeric(coef.tpm(Q)[,1])[1:(length(y)-1)]
         by <- as.numeric(coef.tpm(Q)[,2])[1:(length(y)-1)]
         ay <- as.numeric(coef.tpm(Q)[,3])[1:(length(y)-1)]
@@ -2901,8 +2952,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
           return("Unsupported input. Q must be either an object created by the package ltm or a matrix of responses.")
         }
       }
-      if(missing(qpoints))
-        qpoints <- -ltmP$GH$Z[,2]
+      if(missing(qpoints)) qpoints <- -ltmP$GH$Z[,2]
       irtx <- probpl(qpoints, bx, a=ax, c=cx)
       irty <- probpl(qpoints, by, a=ay, c=cy)
     }
@@ -2911,7 +2961,7 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
     if(kernel=="uniform"){
       ulimit<-(1/(2*bunif*(1-0.61803)))
       KPEN<-0
-    } else ulimit<-4
+    } else ulimit<-10
     
     meanx <- x%*%r
     meany <- y%*%s
@@ -2919,41 +2969,58 @@ irtoseeq <- function(P, Q, x, y, a, qpoints, N, M, model="2pl", design="CE", ker
     varx <- (N/(N-1))*(x^2%*%r-meanx^2)
     vary <- (M/(M-1))*(y^2%*%s-meany^2)
     
-    if(linear){
-      if(hlin$hxlin==0)
-        hx<-as.numeric(1000*sqrt(varx))
-      else
-        hx<-hlin$hxlin
-      if(hlin$hylin==0)
-        hy<-as.numeric(1000*sqrt(vary))
-      else
-        hy<-hlin$hylin
-    } else{
-      if(h$hx==0){
-        if(altopt){
-          hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
-        } else{
-          if(KPEN==0){
-            hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          } else{
-            hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          }
-        }
-      }
-      if(h$hy==0){
-        if(altopt){
-          hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
-        } else{
-          if(KPEN==0){
-            hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          } else{
-            hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-            hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
-          }
-        }
-      }
-    }
+	input <- vector("list", 2)
+    input[[1]] <- list(r, x, N)
+    input[[2]] <- list(s, y, M)
+	   
+	if(h$hx == 0 && h$hy == 0){
+		if(linear == TRUE) bandwidth <- "linear"
+		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
+		hx <- hxhy[1]
+		hy <- hxhy[2]
+	} else{
+		hx <- h$hx
+		hy <- h$hy
+	}  
+    # if(linear){
+      # if(hlin$hxlin==0)
+        # hx<-as.numeric(1000*sqrt(varx))
+      # else
+        # hx<-hlin$hxlin
+      # if(hlin$hylin==0)
+        # hy<-as.numeric(1000*sqrt(vary))
+      # else
+        # hy<-hlin$hylin
+    # } else{
+      # if(h$hx==0){
+        # if(altopt){
+          # hx <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
+        # } else{
+          # if(KPEN==0){
+            # hx<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          # } else{
+            # hxPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            # hx<-optimize(PEN, interval=c(hxPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=r, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          # }
+        # }
+      # }
+      # if(h$hy==0){
+        # if(altopt){
+          # hy <- 9 / sqrt(100 * M^(2/5) - 81) *  sqrt(vary)
+        # } else{
+          # if(KPEN==0){
+            # hy<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          # } else{
+            # hyPEN1min<-optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
+            # hy<-optimize(PEN, interval=c(hyPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=s, y, var=vary, mean=meany, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+          # }
+        # }
+      # }
+    # }
     
     cdfx<-cdf(r, hx, meanx, varx, kernel, slog, bunif)       						#Continuize the estimated cdf:s for X and Y.
     cdfy<-cdf(s, hy, meany, vary, kernel, slog, bunif)
@@ -2992,8 +3059,7 @@ keirt<-function(irtr, irts, N, M, x, y, wpen, KPEN, linear, kernel, slog, bunif)
         ulimit<-(1/(2*bunif*(1-0.61803)))
         KPEN<-0
       }
-      else
-        ulimit<-4
+      else ulimit <- 10
       rirt<-LordW(irtr)
       sirt<-LordW(irts)
       meanxirt<-x%*%rirt
@@ -3072,7 +3138,7 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
     if(kernel=="uniform")
       ulimit<-(1/(2*bunif*(1-0.61803)))
     else
-      ulimit<-4
+      ulimit<-10
     r1<-rowSums(P12)
     r2<-rowSums(P21)
     s1<-colSums(P12)
@@ -3187,7 +3253,7 @@ kequateCB<-function(x, y, P12, P21, DM12, DM21, N, M, hx=0, hy=0, hxlin=0, hylin
   if(kernel=="uniform")
     ulimit<-(1/(2*bunif*(1-0.61803)))
   else
-    ulimit<-4
+    ulimit<-10
   r1<-rowSums(P12)
   r2<-rowSums(P21)
   s1<-colSums(P12)
@@ -3333,7 +3399,7 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
       KPEN<-0
     }
     else
-      ulimit<-4
+      ulimit<-10
     meanx<-x%*%r
     varx<-(N/(N-1))*(x^2%*%r-meanx^2)
     meany<-y%*%s
@@ -3349,12 +3415,12 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
     input[[2]] <- list(s, y, M, Vs %*% t(Vs))
 
     if(hx == 0 && hy == 0){
-		if(linear == T) bandwidth <- "linear"
-		if(linear == F && DS == F) bandwidth <- "PEN"
-		if(linear == F && DS == T) bandwidth <- "DS"
-		if(linear == F && CV == T) bandwidth <- "CV"
-		if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
-		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		if(linear == TRUE) bandwidth <- "linear"
+		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
 		hx <- hxhy[1]
 		hy <- hxhy[2]
 	}
@@ -3449,9 +3515,7 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   if(kernel=="uniform"){
     ulimit<-(1/(2*bunif*(1-0.61803)))
     KPEN<-0
-  }
-  else
-    ulimit<-4
+  } else ulimit <- 10
   
   meanx<-x%*%r
   varx<-(N/(N-1))*(x^2%*%r-meanx^2)
@@ -3471,12 +3535,12 @@ kequateEG<-function(x, y, r, s, DMP, DMQ, N, M, hx=0, hy=0, hxlin=0, hylin=0, KP
   input[[2]] <- list(s, y, M, Cs %*% t(Cs))
   
   if(hx == 0 && hy == 0){
-		if(linear == T) bandwidth <- "linear"
-		if(linear == F && DS == F) bandwidth <- "PEN"
-		if(linear == F && DS == T) bandwidth <- "DS"
-		if(linear == F && CV == T) bandwidth <- "CV"
-		if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
-		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		if(linear == TRUE) bandwidth <- "linear"
+		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
 		hx <- hxhy[1]
 		hy <- hxhy[2]
   }
@@ -3556,9 +3620,7 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
     if(kernel=="uniform"){
       ulimit<-(1/(2*bunif*(1-0.61803)))
       KPEN<-0
-    }
-    else
-      ulimit<-4
+    } else ulimit <- 10
     rP<-rowSums(P)
     tP<-colSums(P)
     sQ<-rowSums(Q)
@@ -3720,8 +3782,7 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
   if(kernel=="uniform"){
     ulimit<-(1/(2*bunif*(1-0.61803)))
     KPEN<-0
-  }
-  else
+  } else
     ulimit<-4
   rP<-rowSums(P)
   tP<-colSums(P)
@@ -3788,13 +3849,13 @@ kequateNEAT_CE<-function(x, y, a, P, Q, DMP, DMQ, N, M, hxP=0, hyQ=0, haP=0, haQ
   input[[4]] <- list(tQ, a, M, Vq %*% t(Vq))
   
   if(hxP == 0 && haP == 0 && hyQ == 0 && haQ == 0){
-	if(linear == T) bandwidth <- "linear"
-	if(linear == F && DS == F) bandwidth <- "PEN"
-	if(linear == F && DS == T) bandwidth <- "DS"
-	if(linear == F && CV == T) bandwidth <- "CV"
-	if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
+	if(linear == TRUE) bandwidth <- "linear"
+	if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+	if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+	if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+	if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
 			  
-	hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+	hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
 	hxP <- hxhy[1]
 	haP <- hxhy[2]
 	hyQ <- hxhy[3]
@@ -3909,9 +3970,7 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
     if(kernel=="uniform"){
       ulimit<-(1/(2*bunif*(1-0.61803)))
       KPEN<-0
-    }
-    else
-      ulimit<-4
+    } else ulimit <- 10
     tP<-colSums(P)
     tQ<-colSums(Q)
     sumr<-numeric(dim(P)[1])
@@ -4033,9 +4092,7 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
   if(kernel=="uniform"){
     ulimit<-(1/(2*bunif*(1-0.61803)))
     KPEN<-0
-  }
-  else
-    ulimit<-4
+  } else ulimit<-10
   tP<-colSums(P)
   tQ<-colSums(Q)
   sumr<-numeric(dim(P)[1])
@@ -4135,12 +4192,12 @@ kequateNEAT_PSE<-function(x, y, P, Q, DMP, DMQ, N, M, w=0.5, hx=0, hy=0, hxlin=0
   input[[2]] <- list(s, y, M, Vs %*% t(Vs))
   
   if(hx == 0 && hy == 0){
-		if(linear == T) bandwidth <- "linear"
-		if(linear == F && DS == F) bandwidth <- "PEN"
-		if(linear == F && DS == T) bandwidth <- "DS"
-		if(linear == F && CV == T) bandwidth <- "CV"
-		if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
-		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		if(linear == TRUE) bandwidth <- "linear"
+		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
 		hx <- hxhy[1]
 		hy <- hxhy[2]
   }
@@ -4208,9 +4265,7 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
     if(kernel=="uniform"){
       ulimit<-(1/(2*bunif*(1-0.61803)))
       KPEN<-0
-    }
-    else
-      ulimit<-4
+    } else ulimit<-10
     if(!is.matrix(P)){
       P<-matrix(P, nrow=length(x))
     }
@@ -4307,9 +4362,7 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
   if(kernel=="uniform"){
     ulimit<-(1/(2*bunif*(1-0.61803)))
     KPEN<-0
-  }
-  else
-    ulimit<-4
+  } else ulimit<-10
 
   J<-dim(P)[1]
   K<-dim(P)[2]
@@ -4351,12 +4404,12 @@ kequateSG<-function(x, y, P, DM, N, hx=0, hy=0, hxlin=0, hylin=0, KPEN=0, wpen=1
   input[[2]] <- list(s, y, M, Vr %*% t(Vr))
   
   if(hx == 0 && hy == 0){
-		if(linear == T) bandwidth <- "linear"
-		if(linear == F && DS == F) bandwidth <- "PEN"
-		if(linear == F && DS == T) bandwidth <- "DS"
-		if(linear == F && CV == T) bandwidth <- "CV"
-		if(linear == F && DS == F && CV == T && altopt == T) bandwidth <- "altopt"
-		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN)
+		if(linear == TRUE) bandwidth <- "linear"
+		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
 		hx <- hxhy[1]
 		hy <- hxhy[2]
   }  

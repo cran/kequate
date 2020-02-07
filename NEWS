@@ -1,3 +1,9 @@
+Changes in version: kequate_1.6.3
+
+* Fixed an issue for bootstrap SEEs with IRT-OSE CE and EG.
+* Fixed issues with the usage of the class() function.
+* Fixed bandwidth selection for logistic and uniform kernels when using IRT-OSE.
+
 Changes in version: kequate_1.6.2
 
 * Fixed an issue related to IRT-OSE PSE with dichotomous data.
