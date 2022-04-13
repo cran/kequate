@@ -36,7 +36,7 @@ If we equate test X to test Y, then we have equated values eYx with estimated pr
 A numeric  vector containing the percentage relative error for the first ten moments.
 }
 \references{
-Andersson, B., Branberg, K., Wiberg, M. (2013). Performing the Kernel Method of Test Equating with the Package \bold{kequate}. \emph{Journal of Statistical Software}, \bold{55(6)}, 1--25. URL \url{http://www.jstatsoft.org/v55/i06/}
+Andersson, B., Branberg, K., Wiberg, M. (2013). Performing the Kernel Method of Test Equating with the Package \bold{kequate}. \emph{Journal of Statistical Software}, \bold{55(6)}, 1--25. <doi: 10.18637/jss.v055.i06>
 
 von Davier, A.A., Holland, P.W., Thayer, D.T. (2004). \emph{The Kernel Method of Test Equating.} Springer-Verlag New York.
 }

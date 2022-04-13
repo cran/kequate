@@ -180,23 +180,23 @@ bkY <- rnorm(15)
 akA <- runif(15, 0.5, 2)
 bkA <- rnorm(15)
 
-dataP <- matrix(0, nrow=1000, ncol=30)
-dataQ <- matrix(0, nrow=1000, ncol=30)
+dataP <- matrix(0, nrow = 1000, ncol = 30)
+dataQ <- matrix(0, nrow = 1000, ncol = 30)
 
 for(i in 1:1000){
 	ability <- rnorm(1)
-	dataP[i,1:15] <- (1/(1+exp(-akX*(ability-bkX)) )) > runif(15)
-	dataP[i,16:30] <- (1/(1+exp(-akA*(ability-bkA)) )) > runif(15)
+	dataP[i,1:15] <- (1 / (1 + exp(-akX * (ability - bkX)))) > runif(15)
+	dataP[i,16:30] <- (1 / (1 + exp(-akA * (ability - bkA)))) > runif(15)
 }
 
 for(i in 1:1000){
-	ability <- rnorm(1, mean=0.5)
-	dataQ[i,1:15] <- (1/(1+exp(-akY*(ability -bkY)) )) > runif(15)
-	dataQ[i,16:30] <- (1/(1+exp(-akA*(ability -bkA)) )) > runif(15)
+	ability <- rnorm(1, mean = 0.5)
+	dataQ[i,1:15] <- (1 / (1 + exp(-akY * (ability - bkY)))) > runif(15)
+	dataQ[i,16:30] <- (1 / (1 + exp(-akA * (ability - bkA)))) > runif(15)
 }
 #Estimate the 2-PL IRT model with package ltm
-sim2plP <- ltm(dataP ~ z1, IRT.param=TRUE)
-sim2plQ <- ltm(dataQ ~ z1, IRT.param=TRUE)
+sim2plP <- ltm(dataP ~ z1, IRT.param = TRUE)
+sim2plQ <- ltm(dataQ ~ z1, IRT.param = TRUE)
 
 #Equate the two tests
 sim2plan <- irtose("CE", sim2plP, sim2plQ, 0:15, 0:15, 0:15)

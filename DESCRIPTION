@@ -2,19 +2,19 @@ Package: kequate
 Encoding: UTF-8
 Type: Package
 Title: The Kernel Method of Test Equating
-Version: 1.6.3
-Date: 2020-02-07
-Authors@R: c(person("Björn", "Andersson", email = "bjoern.h.andersson@gmail.com", role = c("aut", "cre")), person("Kenny", "Bränberg", role = c("aut")), person("Marie", "Wiberg", role = c("aut")))
-Description: Implements the kernel method of test equating as defined in von Davier, A. A., Holland, P. W. and Thayer, D. T. (2004) <doi: 10.1007/b97446> and Andersson, B. and Wiberg, M. (2017) <doi: 10.1007/s11336-016-9528-7> using the CB, EG, SG, NEAT CE/PSE and NEC designs, supporting Gaussian, logistic and uniform kernels and unsmoothed and pre-smoothed input data.
+Version: 1.6.4
+Authors@R: c(person("Björn", "Andersson", email = "bjoern.h.andersson@gmail.com", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-9007-2440")), person("Kenny", "Bränberg", role = c("aut")), person("Marie", "Wiberg", role = c("aut"), comment = c(ORCID = "0000-0001-5549-8262")))
+Date: 2022-04-11
+Description: Implements the kernel method of test equating as defined in von Davier, A. A., Holland, P. W. and Thayer, D. T. (2004) <doi:10.1007/b97446> and Andersson, B. and Wiberg, M. (2017) <doi:10.1007/s11336-016-9528-7> using the CB, EG, SG, NEAT CE/PSE and NEC designs, supporting Gaussian, logistic and uniform kernels and unsmoothed and pre-smoothed input data.
 License: GPL-2 | GPL-3
 Depends: R(>= 2.11.0), methods, stats, graphics, ltm
 Imports: equateIRT, mirt, utils
 LazyData: true
 NeedsCompilation: no
-Packaged: 2020-02-07 16:57:08 UTC; bjorn
-Author: Björn Andersson [aut, cre],
+Packaged: 2022-04-12 20:13:13 UTC; bjorn
+Author: Björn Andersson [aut, cre] (<https://orcid.org/0000-0002-9007-2440>),
   Kenny Bränberg [aut],
-  Marie Wiberg [aut]
+  Marie Wiberg [aut] (<https://orcid.org/0000-0001-5549-8262>)
 Maintainer: Björn Andersson <bjoern.h.andersson@gmail.com>
 Repository: CRAN
-Date/Publication: 2020-02-07 17:30:06 UTC
+Date/Publication: 2022-04-13 07:52:30 UTC

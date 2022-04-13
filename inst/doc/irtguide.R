@@ -1,5 +1,4 @@
 ### R code from vignette source 'irtguide.Rnw'
-### Encoding: ISO8859-1
 
 ###################################################
 ### code chunk number 1: irtguide.Rnw:68-69

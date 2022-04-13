@@ -32,7 +32,7 @@ A data frame containing the score values and the frequencies associated with eac
 }
 
 \references{
-Andersson, B., Branberg, K., Wiberg, M. (2013). Performing the Kernel Method of Test Equating with the Package \bold{kequate}. \emph{Journal of Statistical Software}, \bold{55(6)}, 1--25. URL \url{http://www.jstatsoft.org/v55/i06/}
+Andersson, B., Branberg, K., and Wiberg, M. (2013). Performing the Kernel Method of Test Equating with the Package \bold{kequate}. \emph{Journal of Statistical Software}, \bold{55(6)}, 1--25. <doi:10.18637/jss.v055.i06>
 }
 
 \author{

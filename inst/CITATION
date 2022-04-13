@@ -10,12 +10,12 @@ citEntry(entry = "Article",
   volume       = "55",
   number       = "6",
   pages        = "1--25",
-  url          = "http://www.jstatsoft.org/v55/i06/",
+  url          = "https://doi.org/10.18637/jss.v055.i06",
 
   textVersion  =
   paste("Bjorn Andersson, Kenny Branberg, Marie Wiberg (2013).",
         "Performing the Kernel Method of Test Equating with the Package kequate.",
         "Journal of Statistical Software, 55(6), 1-25.",
-        "URL http://www.jstatsoft.org/v55/i06/.")
+        "URL https://doi.org/10.18637/jss.v055.i06.")
 )
 

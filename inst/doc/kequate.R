@@ -1,5 +1,4 @@
 ### R code from vignette source 'kequate.Rnw'
-### Encoding: ISO8859-1
 
 ###################################################
 ### code chunk number 1: kequate.Rnw:78-79

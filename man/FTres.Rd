@@ -28,7 +28,7 @@ For an observed frequency \eqn{n_{i}}{ni} and the estimated frequency \eqn{m_{i}
 A numeric vector containing the Freeman-Tukey residuals.
 }
 \references{
-Andersson, B., Branberg, K., Wiberg, M. (2013). Performing the Kernel Method of Test Equating with the Package \bold{kequate}. \emph{Journal of Statistical Software}, \bold{55(6)}, 1--25. URL \url{http://www.jstatsoft.org/v55/i06/}
+Andersson, B., Branberg, K., and Wiberg, M. (2013). Performing the Kernel Method of Test Equating with the Package \bold{kequate}. \emph{Journal of Statistical Software}, \bold{55(6)}, 1--25. <doi:10.18637/jss.v055.i06>
 
 Holland, P.W,  Thayer, D. (1998). Univariate and Bivariate Loglinear Models for Discrete Test Score Distributions \emph{ETS Technical Report No} \bold{98-1}.
 }

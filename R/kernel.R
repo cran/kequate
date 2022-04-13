@@ -1,9 +1,9 @@
-setClass("cdist", representation(est1="matrix", est2="matrix", obs1="matrix", obs2="matrix"))
-setClass("SEEvect", representation(SEEYx="matrix", SEEXy="matrix", SEEYxLIN="matrix", SEEXyLIN="matrix"))
-setClass("SEEDout", representation(SEED="data.frame", SEEvect="SEEvect", hlin="data.frame"))
-setClass("kedist", representation(cdfx="numeric", cdfy="numeric", r="numeric", s="numeric"))
-setClass("keout", representation(Cr="matrix", Cs="matrix", Cp="matrix", Cq="matrix", coveqYx="matrix", pdereqYx="matrix", SEEvect="SEEvect", Pest="matrix", Pobs="matrix", Qest="matrix", Qobs="matrix", scores="list", linear="logical", PRE="data.frame", h="data.frame", kernel="character", type="character", equating="data.frame", irt="list", see="character", replications="numeric"))
-setClass("genseed", representation(out="data.frame"))
+setClass("cdist", representation(est1 = "matrix", est2 = "matrix", obs1 = "matrix", obs2 = "matrix"))
+setClass("SEEvect", representation(SEEYx = "matrix", SEEXy = "matrix", SEEYxLIN = "matrix", SEEXyLIN = "matrix"))
+setClass("SEEDout", representation(SEED = "data.frame", SEEvect = "SEEvect", hlin = "data.frame"))
+setClass("kedist", representation(cdfx = "numeric", cdfy = "numeric", r = "numeric", s = "numeric"))
+setClass("keout", representation(Cr = "matrix", Cs = "matrix", Cp = "matrix", Cq = "matrix", coveqYx = "matrix", pdereqYx = "matrix", SEEvect = "SEEvect", Pest = "matrix", Pobs = "matrix", Qest = "matrix", Qobs = "matrix", scores = "list", linear = "logical", PRE = "data.frame", h = "data.frame", kernel = "character", type = "character", equating = "data.frame", irt = "list", see = "character", replications = "numeric"))
+setClass("genseed", representation(out = "data.frame"))
 
 setMethod("plot", signature(x="keout"), function(x){
       if(length(x@equating)<2)
@@ -30,34 +30,34 @@ setMethod("plot", signature(x="genseed"), function(x){
 
 setMethod("plot", signature(x="cdist"), function(x){
   .pardefault <- par(no.readonly = T)
-  xlab1<-"Score values test A/Y"
-  ylab1<-"Mean of X|A or X|Y"
-  xlab2<-"Score values test A/Y"
-  ylab2<-"Variance of X|A or X|Y"
-  xlab3<-"Score values test X"
-  ylab3<-"Mean of A|X or Y|X"
-  xlab4<-"Score values test X"
-  ylab4<-"Variance of A|X or Y|X"
+  xlab1 <- "Score values test A/Y"
+  ylab1 <- "Mean of X|A or X|Y"
+  xlab2 <- "Score values test A/Y"
+  ylab2 <- "Variance of X|A or X|Y"
+  xlab3 <- "Score values test X"
+  ylab3 <- "Mean of A|X or Y|X"
+  xlab4 <- "Score values test X"
+  ylab4 <- "Variance of A|X or Y|X"
   par(oma = c(4, 1, 1, 1))
-  par(mfrow=c(2,2))
-  ylim1<-c(min(x@est1[,1], x@obs1[,1], na.rm=TRUE), max(x@est1[,1], x@obs1[,1], na.rm=TRUE))
+  par(mfrow = c(2,2))
+  ylim1 <- c(min(x@est1[,1], x@obs1[,1], na.rm=TRUE), max(x@est1[,1], x@obs1[,1], na.rm=TRUE))
   plot(0:(length(x@est1[,1])-1), x@est1[,1], ylim=ylim1, xlab=xlab1, ylab=ylab1, pch=16)
-  par(new=TRUE)
+  par(new = TRUE)
   plot(0:(length(x@obs1[,1])-1), x@obs1[,1], ylim=ylim1,  xlab=xlab1, ylab=ylab1,pch=17)
   
-  ylim2<-c(min(x@est1[,2], x@obs1[,2], na.rm=TRUE), max(x@est1[,2], x@obs1[,2], na.rm=TRUE))
+  ylim2 <- c(min(x@est1[,2], x@obs1[,2], na.rm=TRUE), max(x@est1[,2], x@obs1[,2], na.rm=TRUE))
   plot(0:(length(x@est1[,2])-1), x@est1[,2], ylim=ylim2, xlab=xlab2, ylab=ylab2, pch=16)
-  par(new=TRUE)
+  par(new = TRUE)
   plot(0:(length(x@obs1[,2])-1), x@obs1[,2], ylim=ylim2, xlab=xlab2, ylab=ylab2, pch=17)
   
-  ylim3<-c(min(x@est2[,1], x@obs2[,1], na.rm=TRUE), max(x@est2[,1], x@obs2[,1], na.rm=TRUE))
+  ylim3 <- c(min(x@est2[,1], x@obs2[,1], na.rm=TRUE), max(x@est2[,1], x@obs2[,1], na.rm=TRUE))
   plot(0:(length(x@est2[,1])-1), x@est2[,1], ylim=ylim3,xlab=xlab3, ylab=ylab3, pch=16)
-  par(new=TRUE)
+  par(new = TRUE)
   plot(0:(length(x@obs2[,1])-1), x@obs2[,1], ylim=ylim3,xlab=xlab3, ylab=ylab3, pch=17)
   
-  ylim4<-c(min(x@est2[,2], x@obs2[,2], na.rm=TRUE), max(x@est2[,2], x@obs2[,2], na.rm=TRUE))
+  ylim4 <- c(min(x@est2[,2], x@obs2[,2], na.rm=TRUE), max(x@est2[,2], x@obs2[,2], na.rm=TRUE))
   plot(0:(length(x@est2[,2])-1), x@est2[,2], ylim=ylim4,xlab=xlab4, ylab=ylab4, pch=16)
-  par(new=TRUE)
+  par(new = TRUE)
   plot(0:(length(x@obs2[,2])-1), x@obs2[,2], ylim=ylim4, xlab=xlab4, ylab=ylab4, pch=17)
   
   par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
@@ -103,7 +103,7 @@ setMethod("summary", signature(object="keout"), function(object){
   cat("\n\n","Bandwidths Used: \n")
   print(object@h)
   cat("\n Equating Function and Standard Errors: \n")
-  print(data.frame(Score=object@scores$X$x, eqYx=object@equating$eqYx, SEEYx=object@equating$SEEYx))
+  print(data.frame(Score = object@scores$X$x, eqYx = object@equating$eqYx, SEEYx = object@equating$SEEYx))
   cat("\n Comparing the Moments: \n")
   print(object@PRE)}
 )
@@ -262,27 +262,24 @@ adjgrmmirt <- function(input){
 }
 
 adjltm <- function(mat, pars, design, model){
-  if(design=="CE" || design=="PSE"){
-    if(model=="2pl"){
-      pderltmP <- matrix(0, nrow=2*(length(pars$ax)+length(pars$aa)), ncol=2*(length(pars$ax)+length(pars$aa)))
-      
-      #print(bx)
-      #print(aaP)
+  if(design == "CE" || design == "PSE"){
+    if(model == "2pl"){
+      pderltmP <- matrix(0, nrow = 2 * (length(pars$ax) + length(pars$aa)), ncol = 2 * (length(pars$ax) + length(pars$aa)))
       
       for(i in 1:(length(pars$ax))){
-        pderltmP[i,i] <- -1/pars$ax[i]
+        pderltmP[i,i] <- -1 / pars$ax[i]
       }
-      for(i in (length(pars$ax)+1):(length(pars$ax)+length(pars$aa))){
-        pderltmP[i,i] <- -1/pars$aa[i-length(pars$ax)]
+      for(i in (length(pars$ax) + 1):(length(pars$ax) + length(pars$aa))){
+        pderltmP[i,i] <- -1 / pars$aa[i-length(pars$ax)]
       }
       
-      for(i in (length(pars$ax)+length(pars$aa)+1):(2*length(pars$ax)+length(pars$aa))){
-        pderltmP[i,i-length(pars$aa)-length(pars$ax)] <- pars$bxltm[i-length(pars$ax)-length(pars$aa)]/(pars$ax[i-length(pars$ax)-length(pars$aa)])^2
+      for(i in (length(pars$ax) + length(pars$aa) + 1):(2 * length(pars$ax) + length(pars$aa))){
+        pderltmP[i,i - length(pars$aa) - length(pars$ax)] <- pars$bxltm[i - length(pars$ax) - length(pars$aa)] / (pars$ax[i - length(pars$ax) - length(pars$aa)])^2
         pderltmP[i,i] <- 1
       }
       
-      for(i in (2*length(pars$ax)+length(pars$aa)+1):(2*(length(pars$ax)+length(pars$aa)))){
-        pderltmP[i,i-length(pars$aa)-length(pars$ax)] <- pars$baltm[i-2*length(pars$ax)-length(pars$aa)]/(pars$aa[i-2*length(pars$ax)-length(pars$aa)])^2
+      for(i in (2 * length(pars$ax) + length(pars$aa) + 1):(2 * (length(pars$ax) + length(pars$aa)))){
+        pderltmP[i,i - length(pars$aa) - length(pars$ax)] <- pars$baltm[i - 2 * length(pars$ax) - length(pars$aa)] / (pars$aa[i - 2 * length(pars$ax) - length(pars$aa)])^2
         pderltmP[i,i] <- 1
       }
       return(t(pderltmP) %*% mat %*% pderltmP)
@@ -318,27 +315,27 @@ adjltm <- function(mat, pars, design, model){
   }
   if(design=="EG"){
     if(model=="2pl"){
-      pderltmP <- matrix(0, nrow=2*length(pars$ax), ncol=2*length(pars$ax))
+      pderltmP <- matrix(0, nrow = 2 * length(pars$ax), ncol = 2 * length(pars$ax))
       for(i in 1:(length(pars$ax))){
-        pderltmP[i,i] <- -1/pars$ax[i]
+        pderltmP[i,i] <- -1 / pars$ax[i]
       }
-      for(i in (length(pars$ax)+1):(2*length(pars$ax))){
-        pderltmP[i,i-length(pars$ax)] <- pars$bxltm[i-length(pars$ax)]/(pars$ax[i-length(pars$ax)])^2
+      for(i in (length(pars$ax) + 1):(2 * length(pars$ax))){
+        pderltmP[i,i - length(pars$ax)] <- pars$bxltm[i - length(pars$ax)] / (pars$ax[i - length(pars$ax)])^2
         pderltmP[i,i] <- 1
       }
       return(t(pderltmP) %*% mat %*% pderltmP)
     }
 
     if(model=="3pl"){
-      pderltmP <- matrix(0, nrow=3*length(pars$ax), ncol=3*length(pars$ax))
+      pderltmP <- matrix(0, nrow = 3 * length(pars$ax), ncol = 3 * length(pars$ax))
       for(i in 1:(length(pars$ax))){
         pderltmP[i,i] <- 1
       }
-      for(i in (length(pars$ax)+1):(2*length(pars$ax))){
-        pderltmP[i,i] <- -1/pars$ax[i-length(pars$ax)]
+      for(i in (length(pars$ax) + 1):(2 * length(pars$ax))){
+        pderltmP[i,i] <- -1 / pars$ax[i - length(pars$ax)]
       }
-      for(i in (2*length(pars$ax)+1):(3*length(pars$ax))){
-        pderltmP[i,i-length(pars$ax)] <- pars$bxltm[i-2*length(pars$ax)]/(pars$ax[i-2*length(pars$ax)])^2
+      for(i in (2 * length(pars$ax) + 1):(3 * length(pars$ax))){
+        pderltmP[i,i - length(pars$ax)] <- pars$bxltm[i - 2 * length(pars$ax)] / (pars$ax[i - 2 * length(pars$ax)])^2
         pderltmP[i,i] <- 1
       }
       return(t(pderltmP) %*% mat %*% pderltmP)
@@ -348,22 +345,22 @@ adjltm <- function(mat, pars, design, model){
 
 altoptdensity <- function(r, h, var, mean, eqx, x){
   h <- as.vector(h)
-  res<-numeric(length(eqx))
-  a<-as.vector(sqrt(var/(var+h^2)))
+  res <- numeric(length(eqx))
+  a <- as.vector(sqrt(var / (var + h^2)))
   x <- as.vector(x)
   mean <- as.vector(mean)
   for(i in 1:length(eqx)){
-    ff<-0
+    ff <- 0
     for(j in 1:length(r)){
-        Rx<-(eqx[i]-a*x[j]-(1-a)*mean)/(a*h)
-        ff<-ff+x[j]*r[j]*dnorm(Rx)/(a*h)
+        Rx <- (eqx[i] - a * x[j] - (1 - a) * mean) / (a * h)
+        ff <- ff + x[j] * r[j] * dnorm(Rx) / (a * h)
     }
-    res[i]<-ff
+    res[i] <- ff
   }
   return(res)
 }
 
-bandwidth.select <- function(input, bandwidth, KPEN = 0, kernel = "gaussian", slog = 1/3, bunif = 1, wpen=0.5){
+bandwidth.select <- function(input, bandwidth, KPEN = 0, kernel = "gaussian", slog = 1 / 3, bunif = 1, wpen = 0.5){
   #input is a list with the number of entries equal to the number of bandwidths to be calculated
   #input is a matrix or data frame with the score probabilities and the score values
   out <- numeric(length(input))
@@ -373,25 +370,24 @@ bandwidth.select <- function(input, bandwidth, KPEN = 0, kernel = "gaussian", sl
     N <- input[[i]][[3]]
     meanx <- x%*%rP
     varx <- (N / (N - 1)) * (x^2 %*% rP - meanx^2)
+	if(kernel=="uniform"){
+		ulimit<-(1/(2*bunif*(1-0.61803)))
+		KPEN<-0
+	} else ulimit <- 4
     if(bandwidth == "linear") out[i] <- 1000 * sqrt(varx)
     if(bandwidth == "altopt") out[i] <- 9 / sqrt(100 * N^(2/5) - 81) *  sqrt(varx)
     if(bandwidth == "PEN"){
-		if(kernel=="uniform"){
-			ulimit<-(1/(2*bunif*(1-0.61803)))
-			KPEN<-0
-		} else ulimit <- 10
-	
-      if(KPEN==0){out[i] <- optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum}
+      if(KPEN==0){out[i] <- optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r = rP, x, var = varx, mean = meanx, wpen = wpen, K = KPEN, kernel = kernel, slog = slog, bunif = bunif)$minimum}
       else{
-        hPEN1min <- optimize(PEN, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=0, kernel=kernel, slog=slog, bunif=bunif)$minimum
-        out[i] <- optimize(PEN, interval=c(hPEN1min, ulimit), tol = .Machine$double.eps^0.5, r=rP, x, var=varx, mean=meanx, wpen=wpen, K=KPEN, kernel=kernel, slog=slog, bunif=bunif)$minimum
+        hPEN1min <- optimize(PEN, interval = c(0, ulimit), tol = .Machine$double.eps^0.5, r = rP, x, var = varx, mean = meanx, wpen = wpen, K = 0, kernel = kernel, slog = slog, bunif = bunif)$minimum
+        out[i] <- optimize(PEN, interval = c(hPEN1min, ulimit), tol = .Machine$double.eps^0.5, r = rP, x, var = varx, mean = meanx, wpen = wpen, K = KPEN, kernel = kernel, slog = slog, bunif = bunif)$minimum
       }
     }
     if(bandwidth == "DS"){
-      out[i] <- optimize(DS, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r = rP, x, var=varx, mean=meanx, g=4, Sigmar = input[[i]][[4]])$minimum
+      out[i] <- optimize(DS, interval = c(0, ulimit), tol = .Machine$double.eps^0.5, r = rP, x, var = varx, mean = meanx, g = ulimit, Sigmar = input[[i]][[4]])$minimum
     }
 	if(bandwidth == "CV"){
-      out[i] <- optimize(CV, interval=c(0, ulimit), tol = .Machine$double.eps^0.5, r = rP, x, var=varx, mean=meanx)$minimum
+      out[i] <- optimize(CV, interval = c(0, ulimit), tol = .Machine$double.eps^0.5, r = rP, x, var = varx, mean = meanx)$minimum
     }
   }
   return(out)
@@ -556,53 +552,49 @@ cmoments<-function(r, x){
 }
 
 #Cross-validation bandwidth
-CV<-function(h, r, x, var, mean){
+CV <- function(h, r, x, var, mean){
   h <- as.numeric(h)
   r <- as.numeric(r)
   x <- as.numeric(x)
-  fhat<-numeric(length(x))
-  a<-sqrt(var/(var+h^2))
-  Kmat<-matrix(NA,ncol=length(x)-1,nrow=length(x))
+  fhat <- numeric(length(x))
+  a <- sqrt(var / (var + h^2))
+  Kmat <- matrix(NA, ncol = length(x) - 1, nrow = length(x))
   for(i in 1:length(x)){
-    ff<-0
-    rcv<-r[-i]
-    xcv<-x[-i]
+    ff <- 0
+    rcv <- r[-i]
+    xcv <- x[-i]
     for(j in 1:length(rcv)){
-      Rx<-(x[i]-a*xcv[j]-(1-a)*mean)/(a*h)
-      Kmat[i,j]<-dnorm(Rx)/(a*h)
-      }
-    fhat[i]<-((Kmat/rowSums(Kmat))%*%rcv)[i]
+      Rx <- (x[i] - a * xcv[j] - (1 - a) * mean) / (a * h)
+      Kmat[i,j] <- dnorm(Rx) / (a * h)
     }
-  cv<-mean((r-fhat)^2)
-  return(cv)
+    fhat[i] <- ((Kmat / rowSums(Kmat)) %*% rcv)[i]
   }
+  cv <- mean((r - fhat)^2)
+  return(cv)
+}
 
 #density for each score value
-densityeq<-function(r, h, var, mean, eqx, x, kernel, slog, bunif){
-  res<-numeric(length(eqx))
+densityeq <- function(r, h, var, mean, eqx, x, kernel, slog, bunif){
+  res <- numeric(length(eqx))
   h <- as.vector(h)
-  a<-as.vector(sqrt(var/(var+h^2)))
-  al<-as.vector(sqrt(var/(var+((pi^2*slog^2)/3)*h^2)))
-  au<-as.vector(sqrt(var/(var+((bunif^2)/3)*h^2)))
+  a <- as.vector(sqrt(var / (var + h^2)))
+  al <- as.vector(sqrt(var / (var + ((pi^2 * slog^2) / 3) * h^2)))
+  au <- as.vector(sqrt(var / (var + ((bunif^2) / 3) * h^2)))
   x <- as.vector(x)
   mean <- as.vector(mean)
   for(i in 1:length(eqx)){
-    ff<-0
-    if(kernel=="gaussian")
-      ff <- sum(r*dnorm((eqx[i]-a*x-(1-a)*mean)/(a*h))/(a*h) )
-    if(kernel=="stdgaussian")
-      ff <- sum(r*dnorm((eqx[i]-x)/(h))/(h) )
-    if(kernel=="logistic")
-      ff <- sum(r*(exp(-((eqx[i]-al*x-(1-al)*mean)/(al*h))/slog) / (slog*(1+exp(-((eqx[i]-al*x-(1-al)*mean)/(al*h))/slog))^2) /(al*h)))
-    if(kernel=="uniform")
-      ff<-sum(r*dunif((eqx[i]-au*x-(1-au)*mean)/(au*h), min=-bunif, max=bunif)/(au*h))
-    res[i]<-ff
+    ff <- 0
+    if(kernel=="gaussian") ff <- sum(r * dnorm((eqx[i] - a * x - (1 - a) * mean) / (a * h)) / (a * h) )
+    if(kernel=="stdgaussian") ff <- sum(r * dnorm((eqx[i] - x) / (h)) / (h) )
+    if(kernel=="logistic") ff <- sum(r * (exp(-((eqx[i] - al * x -(1 - al) * mean) / (al * h)) / slog) / (slog * (1 + exp(-((eqx[i] - al * x -(1 - al) * mean) / (al * h)) / slog))^2) / (al * h)))
+    if(kernel=="uniform") ff <- sum(r * dunif((eqx[i] - au * x -(1 - au) * mean) / (au * h), min = -bunif, max = bunif) / (au * h))
+    res[i] <- ff
   }
   return(res)
 }
 
 #calculates the derivatives of F w/ respect to r for the score values in eqx
-dFdr<-function(r, h, var, mean, fprim, eqx, x, kernel, slog, bunif, altopt=FALSE, altfprim=0){        	
+dFdr<-function(r, h, var, mean, fprim, eqx, x, kernel, slog, bunif, altopt = FALSE, altfprim = 0){        	
   x <- as.vector(x)
   h <- as.vector(h)
   mean <- as.vector(mean)
@@ -837,13 +829,13 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
       ax <- as.numeric(coef.ltm(P)[,2])[1:nX]
       aaP <- as.numeric(coef.ltm(P)[,2])[(nX + 1):(nX + nA)]
       if(P$IRT.param){
-        bxltm <- -ax*bx
-        baPltm <- -aaP*baP
+        bxltm <- -ax * bx
+        baPltm <- -aaP * baP
       } else{
         bxltm <- bx
         baPltm <- baP
-        bx <- -bxltm/ax
-        baP <- -baPltm/aaP
+        bx <- -bxltm / ax
+        baP <- -baPltm / aaP
       }
       N <- dim(P$X)[1]
       ltmP <- P
@@ -860,51 +852,51 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
       aaP <- a[(nX + 1):(nX + nA)]
       if(SE){
         mycovP <- extract.mirt(P, "vcov")
-        upmat <- cbind(mycovP[seq(2, 2*(nX + nA), by = 2), seq(2, 2*(nX + nA), by = 2)], mycovP[seq(2, 2*(nX + nA), by = 2), seq(1, 2*(nX + nA), by = 2)])
-        lowmat <- cbind(mycovP[seq(2, 2*(nX + nA), by = 2), seq(1, 2*(nX + nA), by = 2)], mycovP[seq(1, 2*(nX + nA), by = 2), seq(1, 2*(nX + nA), by = 2)])
+        upmat <- cbind(mycovP[seq(2, 2 * (nX + nA), by = 2), seq(2, 2 * (nX + nA), by = 2)], mycovP[seq(2, 2 * (nX + nA), by = 2), seq(1, 2 * (nX + nA), by = 2)])
+        lowmat <- cbind(mycovP[seq(1, 2 * (nX + nA), by = 2), seq(2, 2 * (nX + nA), by = 2)], mycovP[seq(1, 2 * (nX + nA), by = 2), seq(1, 2 * (nX + nA), by = 2)])
         covP <- rbind(upmat, lowmat)
       }
       bxltm <- bx
       baPltm <- baP
-      bx <- -bxltm/ax
-      baP <- -baPltm/aaP
+      bx <- -bxltm / ax
+      baP <- -baPltm / aaP
       dataP <- extract.mirt(P, "data")
       N <- nrow(dataP)
       ltmP <- P
       P <- dataP
     } else if(is.matrix(P)){
-      if((length(a)+length(x)-2) != ncol(P))
+      if((length(a) + length(x) - 2) != ncol(P))
         return("Unsupported input. Input matrices must have rows denoting individuals and columns denoting items.")
-      ltmP <- ltm(P ~ z1, IRT.param=FALSE)
+      ltmP <- ltm(P ~ z1, IRT.param = FALSE)
       bx <- as.numeric(coef.ltm(ltmP)[,1])[1:nX]
       baP <- as.numeric(coef.ltm(ltmP)[,1])[(nX + 1):(nX + nA)]
       ax <- as.numeric(coef.ltm(ltmP)[,2])[1:nX]
       aaP <- as.numeric(coef.ltm(ltmP)[,2])[(nX + 1):(nX + nA)]
       bxltm <- bx
       baPltm <- baP
-      bx <- -bxltm/ax
-      baP <- -baPltm/aaP
+      bx <- -bxltm / ax
+      baP <- -baPltm / aaP
       N <- dim(P)[1]
       if(SE) covP <- vcov.ltm(ltmP, robust = robust)
     } else if(is.list(P)){
       if(P$IRT.param == T){
-        ax <- P$pars[1:nX,1]
-        bx <- P$pars[1:nX,2]
-        aaP <- P$pars[(nX + 1):(nX + nA),1]
-        baP <- P$pars[(nX + 1):(nX + nA),2]
-        baPltm <- -ax*bx
-        bxltm <- -aaP*baP
+        ax <- P$pars[1:nX, 1]
+        bx <- P$pars[1:nX, 2]
+        aaP <- P$pars[(nX + 1):(nX + nA), 1]
+        baP <- P$pars[(nX + 1):(nX + nA), 2]
+        baPltm <- -ax * bx
+        bxltm <- -aaP * baP
         N <- P$N
         if(SE) covP <- P$cov
         ltmP <- NULL
         P <- matrix(0)
       } else{  
         bxltm <- P$pars[1:nX,2]
-        baPltm <- P$pars[(nX + 1):(nX + nA),2]
-        ax <- P$pars[1:nX,1]
-        aaP <- P$pars[(nX + 1):(nX + nA),1]
-        bx <- -bxltm/ax
-        baP <- -baPltm/aaP
+        baPltm <- P$pars[(nX + 1):(nX + nA), 2]
+        ax <- P$pars[1:nX, 1]
+        aaP <- P$pars[(nX + 1):(nX + nA), 1]
+        bx <- -bxltm / ax
+        baP <- -baPltm / aaP
         N <- P$N      
         if(SE) covP <- P$cov
         ltmP <- NULL
@@ -925,13 +917,13 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
       ax <- as.numeric(coef.tpm(P)[,3])[1:(length(x)-1)]
       aaP <- as.numeric(coef.tpm(P)[,3])[(length(x)):((length(x)+length(a)-2))]
       if(P$IRT.param){
-        bxltm <- -ax*bx
-        baPltm <- -aaP*baP
+        bxltm <- -ax * bx
+        baPltm <- -aaP * baP
       } else{
         bxltm <- bx
         baPltm <- baP
-        bx <- -bxltm/ax
-        baP <- -baPltm/aaP
+        bx <- -bxltm / ax
+        baP <- -baPltm / aaP
       }
       N <- dim(P$X)[1]
       ltmP <- P
@@ -957,8 +949,8 @@ irtinput <- function(P, x, a, robust, model, SE = T, catsX = 0, catsA = 0){
       }
       bxltm <- bx
       baPltm <- baP
-      bx <- -bxltm/ax
-      baP <- -baPltm/aaP
+      bx <- -bxltm / ax
+      baP <- -baPltm / aaP
       dataP <- extract.mirt(P, "data")
       N <- nrow(dataP)
       ltmP <- P
@@ -1290,30 +1282,32 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     haPlin <- as.numeric(1000*sqrt(varaP))
     haQlin <- as.numeric(1000*sqrt(varaQ))
 	
-	input <- vector("list", 4)
-    input[[1]] <- list(rP, x, N)
-    input[[2]] <- list(tP, a, N)
-    input[[3]] <- list(sQ, y, M)
-    input[[4]] <- list(tQ, a, M)
-	
-	if(h$hxP == 0 && h$haP == 0 && h$hyQ == 0 && h$haQ == 0){
-		if(linear == TRUE) bandwidth <- "linear"
-		if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
-		if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
-		if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
-		if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
-		hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
-		hxP <- hxhy[1]
-		haP <- hxhy[2]
-		hyQ <- hxhy[3]
-		haQ <- hxhy[4]
-	} else{
-		hxP <- h$hxP
-		haP <- h$haP
-		hyQ <- h$hyQ
-		haQ <- h$haP
-	}
+
     if(see=="bootstrap"){
+		input <- vector("list", 4)
+		input[[1]] <- list(rP, x, N)
+		input[[2]] <- list(tP, a, N)
+		input[[3]] <- list(sQ, y, M)
+		input[[4]] <- list(tQ, a, M)
+		
+		if(h$hxP == 0 && h$haP == 0 && h$hyQ == 0 && h$haQ == 0){
+			if(linear == TRUE) bandwidth <- "linear"
+			if(linear == FALSE && DS == FALSE) bandwidth <- "PEN"
+			if(linear == FALSE && DS == TRUE) bandwidth <- "DS"
+			if(linear == FALSE && CV == TRUE) bandwidth <- "CV"
+			if(linear == FALSE && DS == FALSE && CV == TRUE && altopt == TRUE) bandwidth <- "altopt"
+			hxhy <- bandwidth.select(input, bandwidth = bandwidth, KPEN = KPEN, kernel = kernel, slog = slog, bunif = bunif, wpen = wpen)
+			hxP <- hxhy[1]
+			haP <- hxhy[2]
+			hyQ <- hxhy[3]
+			haQ <- hxhy[4]
+		} else{
+			hxP <- h$hxP
+			haP <- h$haP
+			hyQ <- h$hyQ
+			haQ <- h$haP
+		}
+	
       if(model=="2pl"){
         bootsee <- matrix(0, nrow=replications, ncol=length(x))
         for(i in 1:replications){
@@ -1583,7 +1577,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     JeY <- matrix(0, nrow=length(x), ncol=(length(y)+length(a)))
     JeY[,1:(length(y))] <- (-dGdseY)
     JeY[,(length(y)+1):(length(y)+length(a))] <- dHqdteY
-    JeY <- (1/GprimeY)*JeY
+    JeY <- (1 / GprimeY) * JeY
     
     JeYCE <- matrix(0, nrow=length(x), ncol=(length(x)+2*length(a)+length(y)))
     JeYCE[,1:(length(x)+length(a))] <- JeA
@@ -1597,10 +1591,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
     
     adjcovalphaPQ <- cbind(rbind(adjcovalphaP, matrix(0, nrow=nrow(adjcovalphaQ), ncol=ncol(adjcovalphaP))), rbind(matrix(0, nrow=nrow(adjcovalphaP), ncol=ncol(adjcovalphaQ)), adjcovalphaQ))
                              
-    kX <- length(x)-1
-    kA <- length(a)-1
-    kY <- length(y)-1
-    kA <- length(a)-1
+    kX <- length(x) - 1
+    kA <- length(a) - 1
+    kY <- length(y) - 1
+    kA <- length(a) - 1
     
     #Put the partial ders in the right place, to match with the order of item pars in the IRT model (2pl: first b par, then a par; 3pl: first c par, then b par, last a par)
     if(model=="2pl"){
@@ -1654,10 +1648,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
         bx <- as.numeric(coef.ltm(P)[,1])[1:(length(x)-1)]
         ax <- as.numeric(coef.ltm(P)[,2])[1:(length(x)-1)]
         if(P$IRT.param){
-          bxltm <- -ax*bx
+          bxltm <- -ax * bx
         } else{
           bxltm <- bx
-          bx <- -bxltm/ax
+          bx <- -bxltm / ax
         }
         N <- dim(P$X)[1]
         ltmP <- P
@@ -1671,11 +1665,11 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
           
           mycovP <- extract.mirt(P, "vcov")
           upmat <- cbind(mycovP[seq(2, 2 * nX, by = 2), seq(2, 2 * nX, by = 2)], mycovP[seq(2, 2 * nX, by = 2), seq(1, 2 * nX, by = 2)])
-          lowmat <- cbind(mycovP[seq(2, 2 * nX, by = 2), seq(1, 2 * nX, by = 2)], mycovP[seq(1, 2 * nX, by = 2), seq(1, 2 * nX, by = 2)])
+          lowmat <- cbind(mycovP[seq(1, 2 * nX, by = 2), seq(2, 2 * nX, by = 2)], mycovP[seq(1, 2 * nX, by = 2), seq(1, 2 * nX, by = 2)])
           covP <- rbind(upmat, lowmat)
           
           bxltm <- bx
-          bx <- -bxltm/ax
+          bx <- -bxltm / ax
 
           dataP <- extract.mirt(P, "data")
           N <- nrow(dataP)
@@ -1690,7 +1684,7 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
             bx <- as.numeric(coef.ltm(ltmP)[,1])[1:(length(x)-1)]
             ax <- as.numeric(coef.ltm(ltmP)[,2])[1:(length(x)-1)]
             bxltm <- bx
-            bx <- -bxltm/ax
+            bx <- -bxltm / ax
             N <- dim(P)[1]
             covalphaP <- vcov.ltm(ltmP, robust=robust)
           } else{
@@ -1702,10 +1696,10 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
         by <- as.numeric(coef.ltm(Q)[,1])[1:(length(y)-1)]
         ay <- as.numeric(coef.ltm(Q)[,2])[1:(length(y)-1)]
         if(Q$IRT.param){
-          byltm <- -ay*by
+          byltm <- -ay * by
         } else{
           byltm <- by
-          by <- -byltm/ay
+          by <- -byltm / ay
         }
         M <- dim(Q$X)[1]
         ltmQ <- Q
@@ -1719,11 +1713,11 @@ irtose <- function(design="CE", P, Q, x, y, a=0, qpoints=seq(-6, 6, by=0.1), mod
           
           mycovQ <- extract.mirt(Q, "vcov")
           upmat <- cbind(mycovQ[seq(2, 2 * nY, by = 2), seq(2, 2 * nY, by = 2)], mycovQ[seq(2, 2 * nY, by = 2), seq(1, 2 * nY, by = 2)])
-          lowmat <- cbind(mycovQ[seq(2, 2 * nY, by = 2), seq(1, 2 * nY, by = 2)], mycovQ[seq(1, 2 * nY, by = 2), seq(1, 2 * nY, by = 2)])
+          lowmat <- cbind(mycovQ[seq(1, 2 * nY, by = 2), seq(2, 2 * nY, by = 2)], mycovQ[seq(1, 2 * nY, by = 2), seq(1, 2 * nY, by = 2)])
           covQ <- rbind(upmat, lowmat)
           
           byltm <- by
-          by <- -byltm/ay
+          by <- -byltm / ay
           dataQ <- extract.mirt(Q, "data")
           M <- nrow(dataQ)
           ltmQ <- Q
